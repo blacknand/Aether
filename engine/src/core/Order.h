@@ -10,7 +10,7 @@ struct Order
     uint64_t securityId;
     OrderSide side;
     OrderType type;
-    double price;
+    uint64_t price;
     uint32_t quantity;
     uint64_t timestamp;
 };

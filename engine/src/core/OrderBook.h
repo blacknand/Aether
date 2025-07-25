@@ -3,6 +3,7 @@
 
 #include <map>
 #include <queue>
+#include <iostream>
 
 #include "Order.h"
 
@@ -15,7 +16,7 @@ private:
     std::map<price, std::queue<Order>, std::greater<price>> bids;
 public:
     bool addOrder(const Order& order);
-    bool removeOrder(uint64_t orderId);
+    bool removeOrder(price orderId);
     std::optional<price> getBestBid() const;
 };
 

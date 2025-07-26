@@ -42,7 +42,7 @@ bool OrderBook::addOrder(Order& order)
                 }
             }
         case OrderSide::SELL:
-            break;
+            while ()
         default:
             break;
     }

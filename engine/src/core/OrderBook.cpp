@@ -92,11 +92,49 @@ bool OrderBook::addOrder(Order& order)
 
 bool OrderBook::removeOrder(uint64_t orderId)
 {
-
+    return false;
 }
 
 
 std::optional<price> OrderBook::getBestBid() const
 {
+    if (bids.empty()) return {};
+    return bids.begin()->second.front().price;
+}
 
+
+std::optional<price> OrderBook::getBestAsk() const
+{
+    if (asks.empty()) return {};
+    return asks.begin()->second.front().price;
+}
+
+
+size_t OrderBook::getAskCountAt(price p) const {
+    auto it = asks.find(p);
+    return (it != asks.end()) ? it->second.size() : 0;
+}
+
+
+size_t OrderBook::getBidCountAt(price p) const {
+    auto it = bids.find(p);
+    return (it != bids.end()) ? it->second.size() : 0;
+}
+
+
+const Order* OrderBook::getTopAskAt(price p) const {
+    auto it = asks.find(p);
+    if (it == asks.end() || it->second.empty()) {
+        return nullptr;
+    }
+    return &it->second.front();
+}
+
+
+const Order* OrderBook::getTopBidAt(price p) const {
+    auto it = bids.find(p);
+    if (it == bids.end() || it->second.empty()) {
+        return nullptr;
+    }
+    return &it->second.front();
 }

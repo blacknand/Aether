@@ -21,6 +21,7 @@ public:
     bool removeOrder(price orderId);
     std::optional<price> getBestBid() const;
     std::optional<price> getBestAsk() const;
+    void processTrade(std::queue<Order>& restingOrder, Order& order);
 
     size_t getAskCountAt(price p) const;
     size_t getBidCountAt(price p) const;

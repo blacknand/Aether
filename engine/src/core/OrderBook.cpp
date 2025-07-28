@@ -2,11 +2,10 @@
 
 bool OrderBook::addOrder(Order& order) 
 {
-
     switch (order.side) {
         case OrderSide::BUY:
             while (order.quantity > 0 && !asks.empty() && order.price >= asks.begin()->first) {
-                std::queue<Order>& restingSellOrders = asks.begin()->second;
+                std::list<Order>& restingSellOrders = asks.begin()->second;
                 processTrade(restingSellOrders, order);
                 if (asks.begin()->second.empty())
                     asks.erase(asks.begin());
@@ -14,19 +13,24 @@ bool OrderBook::addOrder(Order& order)
 
             if (order.quantity != 0) {
                 switch (order.type) {
-                    case OrderType::LIMIT:
-                        bids[order.price].push(order);
+                    case OrderType::LIMIT: {
+                        bids[order.price].push_back(order);
+                        auto it = std::prev(bids[order.price].end());
+                        orderIdIndex[order.orderId] = it;
                         break;
-                    case OrderType::MARKET:
+                    }
+                    case OrderType::MARKET: {
                         return false;
-                    default:
+                    }
+                    default: {
                         break;
+                    }
                 }
             }
             break;
         case OrderSide::SELL:
             while (order.quantity > 0 && !bids.empty() && order.price <= bids.begin()->first) {
-                std::queue<Order>& restingBidOrders = bids.begin()->second;
+                std::list<Order>& restingBidOrders = bids.begin()->second;
                 processTrade(restingBidOrders, order);
                 if (bids.begin()->second.empty())
                     bids.erase(bids.begin());
@@ -34,13 +38,18 @@ bool OrderBook::addOrder(Order& order)
 
             if (order.quantity != 0) {
                 switch (order.type) {
-                    case OrderType::LIMIT:
-                        asks[order.price].push(order);
+                    case OrderType::LIMIT: {
+                        asks[order.price].push_back(order);
+                        auto it = std::prev(asks[order.price].end());
+                        orderIdIndex[order.orderId] = it;
                         break;
-                    case OrderType::MARKET:
+                    }
+                    case OrderType::MARKET: {
                         return false;
-                    default:
+                    }
+                    default: {
                         break;
+                    }
                 }
             }
             break;
@@ -54,16 +63,33 @@ bool OrderBook::addOrder(Order& order)
 
 bool OrderBook::removeOrder(uint64_t orderId)
 {
-    return false;
+    auto indexIt = orderIdIndex.find(orderId);
+    if (indexIt == orderIdIndex.end()) return false;
+
+    auto orderIt = indexIt->second;
+    price p = orderIt ->price;
+
+    if (orderIt->side == OrderSide::BUY) {
+        bids.at(p).erase(orderIt);
+        if (bids.at(p).empty())
+            bids.erase(p);
+    } else {
+        asks.at(p).erase(orderIt);
+        if (asks.at(p).empty())
+            asks.erase(p);
+    }
+
+    orderIdIndex.erase(indexIt);
+    return true;
 }
 
 
-void OrderBook::processTrade(std::queue<Order>& restingOrders, Order& order)
+void OrderBook::processTrade(std::list<Order>& restingOrders, Order& order)
 {
     static uint32_t nextTradeId = 1;        // TODO: Improve this, probably not static
     while (order.quantity > 0 && !restingOrders.empty()) {
         Order& restingOrder = restingOrders.front();
-        uint32_t tradeQuantity = std::min(order.quantity, restingOrder.quantity);
+        uint64_t tradeQuantity = std::min(order.quantity, restingOrder.quantity);
         Trade newTrade;
         newTrade.tradeId = nextTradeId++;
         newTrade.securityId = order.securityId;
@@ -77,7 +103,7 @@ void OrderBook::processTrade(std::queue<Order>& restingOrders, Order& order)
         restingOrder.quantity -= newTrade.quantity;
                 
         if (restingOrder.quantity == 0)
-            restingOrders.pop();
+            restingOrders.pop_front();
     }
 }
 
@@ -123,4 +149,13 @@ const Order* OrderBook::getTopBidAt(price p) const {
         return nullptr;
     }
     return &it->second.front();
+}
+
+
+const Order* OrderBook::getLastBidAt(price p) const {
+    auto it = bids.find(p);
+    if (it == bids.end() || it->second.empty()) {
+        return nullptr;
+    }
+    return &it->second.back(); 
 }

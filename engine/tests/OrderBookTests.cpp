@@ -105,6 +105,47 @@ TEST_F(OrderBookTest, NoMatch_PriceNotGoodEnough)
 }
 
 
+TEST_F(OrderBookTest, RemoveExistingOrder)
+{
+    Order limitOrder = {16, 16, OrderSide::BUY, OrderType::LIMIT, 100, 1, 0};
+    book.addOrder(limitOrder);
+    ASSERT_EQ(book.getBidCountAt(100), 1);
+    ASSERT_TRUE(book.removeOrder(16));
+}
+
+
+TEST_F(OrderBookTest, RemoveNonExistentOrder)
+{
+    ASSERT_FALSE(book.removeOrder(17));
+}
+
+
+TEST_F(OrderBookTest, RemoveFromMiddleOfList)
+{
+    Order limitOrder1 = {18, 18, OrderSide::BUY, OrderType::LIMIT, 100, 1, 0};
+    Order limitOrder2 = {19, 19, OrderSide::BUY, OrderType::LIMIT, 100, 1, 0};
+    Order limitOrder3 = {20, 20, OrderSide::BUY, OrderType::LIMIT, 100, 1, 0};
+    book.addOrder(limitOrder1);
+    book.addOrder(limitOrder2);
+    book.addOrder(limitOrder3);
+    ASSERT_EQ(book.getBidCountAt(100), 3);
+    book.removeOrder(19);
+    ASSERT_EQ(book.getBidCountAt(100), 2);
+    ASSERT_EQ(book.getTopBidAt(100)->orderId, 18);
+    ASSERT_EQ(book.getLastBidAt(100)->orderId, 20);
+}
+
+
+TEST_F(OrderBookTest, RemoveLastOrderAtPriceLevel)
+{
+    Order limitOrder1 = {21, 21, OrderSide::BUY, OrderType::LIMIT, 100, 1, 0};
+    book.addOrder(limitOrder1);
+    ASSERT_EQ(book.getBidCountAt(100), 1);
+    book.removeOrder(21);
+    ASSERT_EQ(book.getBidCountAt(100), 0);
+}
+
+
 int main(int argc, char **argv) 
 {
   testing::InitGoogleTest(&argc, argv);

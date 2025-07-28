@@ -13,6 +13,13 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+FetchContent_Declare(
+  benchmark
+  GIT_REPOSITORY https://github.com/google/benchmark.git
+  GIT_TAG        v1.8.3
+)
+FetchContent_MakeAvailable(benchmark)
+
 add_executable(
     AetherEngine
     src/main.cpp
@@ -25,6 +32,7 @@ target_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+# *** GoogleTest Setup *** #
 enable_testing()
 include(GoogleTest)
 
@@ -46,3 +54,21 @@ target_link_libraries(
 )
 
 gtest_discover_tests(OrderBookTests)
+
+# *** GoogleBenchmark Setup *** #
+add_executable(
+    Benchmarks
+    benchmarks/MatchingBenchmarks.cpp
+    src/core/OrderBook.cpp
+)
+
+target_link_libraries(
+    Benchmarks
+    benchmark::benchmark
+)
+
+target_include_directories(
+    Benchmarks
+    PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)

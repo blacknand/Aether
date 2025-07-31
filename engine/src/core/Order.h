@@ -1,7 +1,7 @@
 #ifndef ORDER_H
 #define ORDER_H
 
-enum class OrderSide { BUY, SELL };
+enum class OrderSide { BID, ASK };
 enum class OrderType { LIMIT, MARKET };
 
 struct Order

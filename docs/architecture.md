@@ -11,7 +11,7 @@ The Price-Time Priority is also known as just FIFO. It is goverened by a strict,
 
 2. **Time priority**: If multiple orders exist at the same price level, the secondary sorting criterion is time. The order that was recieved by the exchange first gets precedence over later orders at the same price. The "time" component is typically a high-precision timestamp (nanoseconds) assigned by the exchange the moment an order is recieved and accepted by the system.
 
-When a new aggressing order enters the system, the matching engine immediately attemps to match it against existing passive orders on the other side of the LOB. A trade is possible of the prices "cross" -- if an incoming bid order's price is `>=` the best ask price, or if an incoming ask order's price is `<=` the best bid price. The matching process then follows a determistic sequential set of steps (it is the same for both ask and bid, just mirror them), I cover a bid here:
+When a new aggressing order enters the system, the matching engine immediately attemps to match it against existing passive orders on the other side of the LOB. A trade is possible if the prices "cross" -- if an incoming bid (buy) order's price is `>=` the best ask (sell) price, or if an incoming ask order's price is `<=` the best bid price. The matching process then follows a determistic sequential set of steps (it is the same for both ask and bid, just mirror them), I cover a bid here:
 
 1. **Identify Counterpart:** The engine looks at the ask side of the LOB and identifies the best price level; the one with the lowest price.
 2. **Check Price:** Since it is a market order, its implicit price is effectively infinite (because the implication is tha the trader is willing to pay *anything* for the securities), so it will cross with any available ask. For a limit buy order, the engine would check if its limit is `>=` the best ask price.
@@ -23,7 +23,7 @@ When a new aggressing order enters the system, the matching engine immediately a
     - If the passive order was only partially filled, it remains in its position at the head of its price-level queue, retaining its time priority.
 7. **Repeat or Rest:**
     - if the aggressing order's quantity is now 0, it is fully filled and the matching process for this order concludes.
-    - If the aggressing order still has remaining quantity, the process repeats from step 3, either with the next order in the queue at the current price level, or if that level is depleted, with the first order at the next-best price level. This process of an aggressive order consuming liquidity across multiple price levels is known as "walking the book".
+    - If the aggressing order still has remaining quantity, the process repeats from step 3, either with the next order in the queue at the current price level, or if that level is depleted, with the first resting order at the next-best price level. This process of an aggressive order consuming liquidity across multiple price levels is known as "walking the book".
 
 ### Limit Order Book (LOB)
 The LOB is a real-time dynamic data structure for all orders of a particular financial instrument. It provides a completely transparent view for an asset at various price points. The LOB is composed of two distinct sides:

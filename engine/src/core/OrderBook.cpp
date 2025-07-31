@@ -2,60 +2,31 @@
 
 std::vector<Trade> OrderBook::addOrder(Order& order) 
 {
+    // TODO: will need to add MARKET (FOK) logic etc,
+
     std::vector<Trade> trades;
-    switch (order.side) {
-        case OrderSide::BUY:
-            while (order.quantity > 0 && !asks.empty() && order.price >= asks.begin()->first) {
-                std::list<Order>& restingSellOrders = asks.begin()->second;
-                processTrade(restingSellOrders, order, trades);
-                if (asks.begin()->second.empty())
-                    asks.erase(asks.begin());
-            }
+    if (order.side == OrderSide::BID) {
+        while (order.quantity > 0 && !asks.empty() && order.price >= asks.begin()->first) {
+            uint64_t restingOrderId = asks.begin()->second.front().orderId;
+            processTrade(order, restingOrderId, trades);
+        }
+    } else {
+        while (order.quantity > 0 && !bids.empty() && order.price <= bids.begin()->first) {
+            uint64_t restingOrderId = bids.begin()->second.front().orderId;
+            processTrade(order, restingOrderId, trades);
+        }
+    }
 
-            if (order.quantity != 0) {
-                switch (order.type) {
-                    case OrderType::LIMIT: {
-                        bids[order.price].push_back(order);
-                        auto it = std::prev(bids[order.price].end());
-                        orderIdIndex[order.orderId] = it;
-                        break;
-                    }
-                    case OrderType::MARKET: {
-                        return trades;
-                    }
-                    default: {
-                        break;
-                    }
-                }
-            }
-            break;
-        case OrderSide::SELL:
-            while (order.quantity > 0 && !bids.empty() && order.price <= bids.begin()->first) {
-                std::list<Order>& restingBidOrders = bids.begin()->second;
-                processTrade(restingBidOrders, order, trades);
-                if (bids.begin()->second.empty())
-                    bids.erase(bids.begin());
-            }
-
-            if (order.quantity != 0) {
-                switch (order.type) {
-                    case OrderType::LIMIT: {
-                        asks[order.price].push_back(order);
-                        auto it = std::prev(asks[order.price].end());
-                        orderIdIndex[order.orderId] = it;
-                        break;
-                    }
-                    case OrderType::MARKET: {
-                        return trades;
-                    }
-                    default: {
-                        break;
-                    }
-                }
-            }
-            break;
-        default:
-            break;
+    if (order.quantity > 0) {
+        if (order.side == OrderSide::BID) {
+            bids[order.price].push_back(order);
+            auto it = std::prev(bids[order.price].end());
+            orderIdIndex[order.orderId] = it;
+        } else {
+            asks[order.price].push_back(order);
+            auto it = std::prev(asks[order.price].end());
+            orderIdIndex[order.orderId] = it;
+        }
     }
 
     return trades;
@@ -64,53 +35,43 @@ std::vector<Trade> OrderBook::addOrder(Order& order)
 
 bool OrderBook::removeOrder(uint64_t orderId)
 {
-    auto indexIt = orderIdIndex.find(orderId);
-    if (indexIt == orderIdIndex.end()) return false;
 
-    auto orderIt = indexIt->second;
-    price p = orderIt ->price;
-
-    if (orderIt->side == OrderSide::BUY) {
-        bids.at(p).erase(orderIt);
-        if (bids.at(p).empty())
-            bids.erase(p);
-    } else {
-        asks.at(p).erase(orderIt);
-        if (asks.at(p).empty())
-            asks.erase(p);
-    }
-
-    orderIdIndex.erase(indexIt);
-    return true;
 }
 
 
-void OrderBook::processTrade(std::list<Order>& restingOrders, Order& order, std::vector<Trade>& trades)
+void OrderBook::processTrade(Order& aggressiveOrder, uint64_t restingOrderId, std::vector<Trade>& trades)
 {
-    static uint32_t nextTradeId = 1;        // TODO: Improve this, probably not static
-    while (order.quantity > 0 && !restingOrders.empty()) {
-        Order& restingOrder = restingOrders.front();
-        uint32_t tradeQuantity = std::min(order.quantity, restingOrder.quantity);
+    static uint32_t nextTradeId = 1;        // TODO: Improve this
+    auto& restingOrderIter = orderIdIndex.at(restingOrderId);
+    uint32_t tradeQuantity = std::min(aggressiveOrder.quantity, restingOrderIter->quantity);
+    trades.emplace_back(Trade{
+        .tradeId = nextTradeId++,
+        .securityId = aggressiveOrder.securityId,
+        .price = restingOrderIter->price,
+        .quantity = tradeQuantity,
+        .aggressingOrderId = aggressiveOrder.orderId,
+        .restingOrderId = restingOrderId,
+        .timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count())
+    });
 
-        std::cout << "Looping... Aggressor Qty: " << order.quantity << ", Resting Qty: " << restingOrder.quantity 
-                  << ", Trade Qty: " << tradeQuantity << std::endl;
+    aggressiveOrder.quantity -= tradeQuantity;
+    restingOrderIter->quantity -= tradeQuantity;
 
-        trades.emplace_back(Trade{
-            .tradeId = nextTradeId++,
-            .securityId = order.securityId,
-            .price = restingOrder.price,
-            .quantity = tradeQuantity,
-            .aggressingOrderId = order.orderId,
-            .restingOrderId = restingOrder.orderId,
-            .timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::system_clock::now().time_since_epoch()).count())
-        });
+    if (restingOrderIter->quantity == 0) {
+        orderIdIndex.erase(restingOrderId);
 
-        order.quantity -= tradeQuantity;
-        restingOrders.front().quantity -= tradeQuantity;
-                
-        if (restingOrders.front().quantity == 0) {
-            orderIdIndex.erase(restingOrder.orderId);
-            restingOrders.pop_front();
+        if (restingOrderIter->side == OrderSide::BID) {
+            auto& orderList = bids.at(restingOrderIter->price);
+            orderList.erase(restingOrderIter);
+
+            if (orderList.empty())
+                bids.erase(restingOrderIter->price);
+        } else {
+            auto& orderList = asks.at(restingOrderIter->price);
+            orderList.erase(restingOrderIter);
+
+            if (orderList.empty())
+                asks.erase(restingOrderIter->price);
         }
     }
 }

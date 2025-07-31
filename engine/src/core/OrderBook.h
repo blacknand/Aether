@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <iostream>
 #include <chrono>
+#include <vector>
 
 #include "Order.h"
 #include "Trade.h"
@@ -19,11 +20,12 @@ private:
     std::map<price, std::list<Order>, std::greater<price>> bids;
     std::unordered_map<uint64_t, std::list<Order>::iterator> orderIdIndex;
 public:
-    bool addOrder(Order& order);
+    // bool addOrder(Order& order);
+    std::vector<Trade> addOrder(Order& order);
     bool removeOrder(price orderId);
     std::optional<price> getBestBid() const;
     std::optional<price> getBestAsk() const;
-    void processTrade(std::list<Order>& restingOrder, Order& order);
+    void processTrade(std::list<Order>& restingOrder, Order& order, std::vector<Trade>& trades);
 
     size_t getAskCountAt(price p) const;
     size_t getBidCountAt(price p) const;

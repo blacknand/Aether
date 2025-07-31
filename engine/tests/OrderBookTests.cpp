@@ -78,7 +78,7 @@ TEST_F(OrderBookTest, WalkTheBook)
 TEST_F(OrderBookTest, MarketOrderRejection)
 {
     Order marketBuyOrder = {12, 12, OrderSide::BUY, OrderType::MARKET, 100, 10, 0};
-    ASSERT_EQ(book.addOrder(marketBuyOrder), false);
+    ASSERT_TRUE(book.addOrder(marketBuyOrder).empty());
 }
 
 
@@ -100,7 +100,7 @@ TEST_F(OrderBookTest, NoMatch_PriceNotGoodEnough)
     Order restingSellOrder = {15, 15, OrderSide::SELL, OrderType::LIMIT, 101, 10, 0};
     book.addOrder(restingSellOrder);
     Order limitBuyOrder = {16, 16, OrderSide::BUY, OrderType::LIMIT, 100, 10, 0};
-    ASSERT_TRUE(book.addOrder(limitBuyOrder));
+    ASSERT_TRUE(book.addOrder(limitBuyOrder).empty());
     ASSERT_EQ(book.getBestBid().value_or(0), 100);
 }
 

@@ -1,12 +1,13 @@
 #include "OrderBook.h"
 
-bool OrderBook::addOrder(Order& order) 
+std::vector<Trade> OrderBook::addOrder(Order& order) 
 {
+    std::vector<Trade> trades;
     switch (order.side) {
         case OrderSide::BUY:
             while (order.quantity > 0 && !asks.empty() && order.price >= asks.begin()->first) {
                 std::list<Order>& restingSellOrders = asks.begin()->second;
-                processTrade(restingSellOrders, order);
+                processTrade(restingSellOrders, order, trades);
                 if (asks.begin()->second.empty())
                     asks.erase(asks.begin());
             }
@@ -20,7 +21,7 @@ bool OrderBook::addOrder(Order& order)
                         break;
                     }
                     case OrderType::MARKET: {
-                        return false;
+                        return trades;
                     }
                     default: {
                         break;
@@ -31,7 +32,7 @@ bool OrderBook::addOrder(Order& order)
         case OrderSide::SELL:
             while (order.quantity > 0 && !bids.empty() && order.price <= bids.begin()->first) {
                 std::list<Order>& restingBidOrders = bids.begin()->second;
-                processTrade(restingBidOrders, order);
+                processTrade(restingBidOrders, order, trades);
                 if (bids.begin()->second.empty())
                     bids.erase(bids.begin());
             }
@@ -45,7 +46,7 @@ bool OrderBook::addOrder(Order& order)
                         break;
                     }
                     case OrderType::MARKET: {
-                        return false;
+                        return trades;
                     }
                     default: {
                         break;
@@ -57,7 +58,7 @@ bool OrderBook::addOrder(Order& order)
             break;
     }
 
-    return true;
+    return trades;
 }
 
 
@@ -84,26 +85,33 @@ bool OrderBook::removeOrder(uint64_t orderId)
 }
 
 
-void OrderBook::processTrade(std::list<Order>& restingOrders, Order& order)
+void OrderBook::processTrade(std::list<Order>& restingOrders, Order& order, std::vector<Trade>& trades)
 {
     static uint32_t nextTradeId = 1;        // TODO: Improve this, probably not static
     while (order.quantity > 0 && !restingOrders.empty()) {
         Order& restingOrder = restingOrders.front();
-        uint64_t tradeQuantity = std::min(order.quantity, restingOrder.quantity);
-        Trade newTrade;
-        newTrade.tradeId = nextTradeId++;
-        newTrade.securityId = order.securityId;
-        newTrade.price = restingOrder.price;
-        newTrade.quantity = tradeQuantity;
-        newTrade.aggressingOrderId = order.orderId;
-        newTrade.restingOrderId = restingOrder.orderId;
-        newTrade.timestamp = std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::system_clock::now().time_since_epoch()).count();
+        uint32_t tradeQuantity = std::min(order.quantity, restingOrder.quantity);
 
-        order.quantity -= newTrade.quantity;
-        restingOrder.quantity -= newTrade.quantity;
+        std::cout << "Looping... Aggressor Qty: " << order.quantity << ", Resting Qty: " << restingOrder.quantity 
+                  << ", Trade Qty: " << tradeQuantity << std::endl;
+
+        trades.emplace_back(Trade{
+            .tradeId = nextTradeId++,
+            .securityId = order.securityId,
+            .price = restingOrder.price,
+            .quantity = tradeQuantity,
+            .aggressingOrderId = order.orderId,
+            .restingOrderId = restingOrder.orderId,
+            .timestamp = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds> (std::chrono::system_clock::now().time_since_epoch()).count())
+        });
+
+        order.quantity -= tradeQuantity;
+        restingOrders.front().quantity -= tradeQuantity;
                 
-        if (restingOrder.quantity == 0)
+        if (restingOrders.front().quantity == 0) {
+            orderIdIndex.erase(restingOrder.orderId);
             restingOrders.pop_front();
+        }
     }
 }
 

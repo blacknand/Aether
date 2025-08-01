@@ -35,7 +35,23 @@ std::vector<Trade> OrderBook::addOrder(Order& order)
 
 bool OrderBook::removeOrder(uint64_t orderId)
 {
+    auto it = orderIdIndex.find(orderId);
+    if (it == orderIdIndex.end()) return false;
+    auto orderIt = it->second;
 
+    if (orderIt->side == OrderSide::BID) {
+        auto& orderList = bids.at(orderIt->price);
+        orderList.erase(orderIt);
+        if (orderList.empty())
+            bids.erase(orderIt->price);
+    } else {
+        auto& orderList = asks.at(orderIt->price);
+        orderList.erase(orderIt);
+        if (orderList.empty())
+            asks.erase(orderIt->price);
+    }
+    orderIdIndex.erase(it);
+    return true;
 }
 
 

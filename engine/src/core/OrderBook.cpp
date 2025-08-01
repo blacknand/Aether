@@ -74,21 +74,24 @@ void OrderBook::processTrade(Order& aggressiveOrder, uint64_t restingOrderId, st
     restingOrderIter->quantity -= tradeQuantity;
 
     if (restingOrderIter->quantity == 0) {
-        orderIdIndex.erase(restingOrderId);
+        auto listIteratorCopy = restingOrderIter;
+        OrderSide side = restingOrderIter->side;
+        price p = restingOrderIter->price;
 
-        if (restingOrderIter->side == OrderSide::BID) {
-            auto& orderList = bids.at(restingOrderIter->price);
-            orderList.erase(restingOrderIter);
+        if (side == OrderSide::BID) {
+            auto& orderList = bids.at(p);
+            orderList.erase(listIteratorCopy);
 
             if (orderList.empty())
-                bids.erase(restingOrderIter->price);
+                bids.erase(p);
         } else {
-            auto& orderList = asks.at(restingOrderIter->price);
-            orderList.erase(restingOrderIter);
+            auto& orderList = asks.at(p);
+            orderList.erase(listIteratorCopy);
 
             if (orderList.empty())
-                asks.erase(restingOrderIter->price);
+                asks.erase(p);
         }
+        orderIdIndex.erase(restingOrderId);
     }
 }
 

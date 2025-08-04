@@ -6,14 +6,28 @@ std::vector<Trade> OrderBook::addOrder(Order& order)
 
     std::vector<Trade> trades;
     if (order.side == OrderSide::BID) {
-        while (order.quantity > 0 && !asks.empty() && order.price >= asks.begin()->first) {
-            uint64_t restingOrderId = asks.begin()->second.front().orderId;
-            processTrade(order, restingOrderId, trades);
+        if (order.type == OrderType::MARKET) {
+            while (order.quantity > 0 && !asks.empty()) {
+                uint64_t restingOrderId = asks.begin()->second.front().orderId;
+                processTrade(order, restingOrderId, trades);
+            }
+        } else {
+            while (order.quantity > 0 && !asks.empty() && order.price >= asks.begin()->first) {
+                uint64_t restingOrderId = asks.begin()->second.front().orderId;
+                processTrade(order, restingOrderId, trades);
+            }
         }
     } else {
-        while (order.quantity > 0 && !bids.empty() && order.price <= bids.begin()->first) {
-            uint64_t restingOrderId = bids.begin()->second.front().orderId;
-            processTrade(order, restingOrderId, trades);
+        if (order.type == OrderType::MARKET) {
+            while (order.quantity > 0 && !bids.empty()) {
+                uint64_t restingOrderId = bids.begin()->second.front().orderId;
+                processTrade(order, restingOrderId, trades);
+            }
+        } else {
+            while (order.quantity > 0 && !bids.empty() && order.price <= bids.begin()->first) {
+                uint64_t restingOrderId = bids.begin()->second.front().orderId;
+                processTrade(order, restingOrderId, trades);
+            }
         }
     }
 

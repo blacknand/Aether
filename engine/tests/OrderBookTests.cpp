@@ -26,7 +26,7 @@ TEST_F(OrderBookTest, AddSingleLimitSellOrder)
 }
 
 
-TEST_F(OrderBookTest, FullMatch)
+TEST_F(OrderBookTest, FullMatch_LimitOrder)
 {
     Order buyOrder = {3, 3, OrderSide::BID, OrderType::LIMIT, 100, 10, 0};
     book.addOrder(buyOrder);
@@ -61,7 +61,7 @@ TEST_F(OrderBookTest, PartialFill_RestingIsFilled)
 }
 
 
-TEST_F(OrderBookTest, WalkTheBook)
+TEST_F(OrderBookTest, WalkTheBook_LimitOrder)
 {
     Order restingSellOrder1 = {9, 9, OrderSide::ASK, OrderType::LIMIT, 100, 10, 0};
     Order restingSellOrder2 = {10, 10, OrderSide::ASK, OrderType::LIMIT, 101, 10, 0};
@@ -143,6 +143,53 @@ TEST_F(OrderBookTest, RemoveLastOrderAtPriceLevel)
     ASSERT_EQ(book.getBidCountAt(100), 1);
     book.removeOrder(21);
     ASSERT_EQ(book.getBidCountAt(100), 0);
+}
+
+
+TEST_F(OrderBookTest, FullMatch_MarketOrder)
+{
+    Order restingLimitAsk = {22, 22, OrderSide::ASK, OrderType::LIMIT, 100, 10, 0};
+    book.addOrder(restingLimitAsk);
+    ASSERT_EQ(book.getBestAsk().value_or(0), 100);
+    Order aggressiveMarketBid = {23, 23, OrderSide::BID, OrderType::MARKET, 100, 10, 0};
+    book.addOrder(aggressiveMarketBid);
+    ASSERT_FALSE(book.getBestBid().has_value());
+    ASSERT_FALSE(book.getBestAsk().has_value());
+}
+
+
+TEST_F(OrderBookTest, MarketOrderRestsWithNoLiquidity)
+{
+    Order marketOrderBid = {23, 23, OrderSide::BID, OrderType::MARKET, 100, 10, 0};
+    book.addOrder(marketOrderBid);
+    ASSERT_EQ(book.getBidCountAt(100), 1);
+    ASSERT_EQ(book.getBestBid().value_or(0), 100);
+}
+
+
+TEST_F(OrderBookTest, PartialFill_MarketOrder)
+{
+    Order restingLimitAsk = {25, 25, OrderSide::ASK, OrderType::LIMIT, 101, 5, 0};
+    book.addOrder(restingLimitAsk);
+    Order marketOrderBid = {24, 24, OrderSide::BID, OrderType::MARKET, 100, 10, 0};
+    book.addOrder(marketOrderBid);
+    ASSERT_FALSE(book.getBestAsk().has_value());
+    ASSERT_TRUE(book.getBestBid().has_value());
+    ASSERT_EQ(book.getBestBid().value_or(0), 100);
+    ASSERT_EQ(book.getTopBidAt(100)->quantity, 5);
+}
+
+
+TEST_F(OrderBookTest, WalkTheBook_MarketOrder)
+{
+    Order restingLimitAsk1 = {28, 28, OrderSide::ASK, OrderType::LIMIT, 100, 5, 0};
+    Order restingLimitAsk2 = {29, 29, OrderSide::ASK, OrderType::LIMIT, 95, 5, 0};
+    book.addOrder(restingLimitAsk1);
+    book.addOrder(restingLimitAsk2);
+    Order marketOrderBid = {27, 27, OrderSide::BID, OrderType::MARKET, 100, 10, 0};
+    book.addOrder(marketOrderBid);
+    ASSERT_FALSE(book.getBestBid().has_value());
+    ASSERT_FALSE(book.getBestAsk().has_value());
 }
 
 

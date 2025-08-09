@@ -1,5 +1,6 @@
 ROADMAP.md
 *.pdf
 *.DS_Store
-build
-engine/include/benchmark
+/build/
+/third_party/
+/grpc_install/

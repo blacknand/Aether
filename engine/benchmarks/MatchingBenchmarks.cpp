@@ -18,7 +18,8 @@ static void SetupOrderBook(OrderBook& book)
 }
 
 
-static void BM_RealisticTrade(benchmark::State& state) {
+static void BM_RealisticTrade(benchmark::State& state) 
+{
     for (auto _ : state) {
         state.PauseTiming();
         OrderBook book;
@@ -33,7 +34,8 @@ static void BM_RealisticTrade(benchmark::State& state) {
 BENCHMARK(BM_RealisticTrade);
 
 
-static void BM_PassiveInsert(benchmark::State& state) {
+static void BM_PassiveInsert(benchmark::State& state) 
+{
     for (auto _ : state) {
         state.PauseTiming();
         OrderBook book;
@@ -50,7 +52,8 @@ static void BM_PassiveInsert(benchmark::State& state) {
 BENCHMARK(BM_PassiveInsert);
 
 
-static void BM_RemoveOrder(benchmark::State& state) {
+static void BM_RemoveOrder(benchmark::State& state) 
+{
     for (auto _ : state) {
         state.PauseTiming();
         OrderBook book;
@@ -61,6 +64,22 @@ static void BM_RemoveOrder(benchmark::State& state) {
     }
 }
 BENCHMARK(BM_RemoveOrder);
+
+
+static void BM_MarketOrderTrade(benchmark::State& state) 
+{
+    for (auto _ :  state) {
+        state.PauseTiming();
+        OrderBook book;
+        SetupOrderBook(book);
+        Order aggressiveBid = {2001, 1, OrderSide::BID, OrderType::MARKET, 10000, 10, 0};
+        state.ResumeTiming();
+        auto trades = book.addOrder(aggressiveBid);
+        benchmark::ClobberMemory();
+        benchmark::DoNotOptimize(trades);
+    }
+}
+BENCHMARK(BM_MarketOrderTrade);
 
 
 BENCHMARK_MAIN();

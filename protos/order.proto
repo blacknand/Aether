@@ -33,7 +33,7 @@ message OrderRequest {
     OrderSide side = 2;
     OrderType type = 3;
     uint32 quantity = 4;
-    double price = 5; // Ignored for MARKET orders
+    uint64 price = 5; // Ignored for MARKET orders
 }
 
 message OrderConfirmation {
@@ -49,13 +49,13 @@ message StreamRequest {
 message Trade {
     uint64 trade_id = 1;
     uint64 security_id = 2;
-    double price = 3;
+    uint64 price = 3;
     uint32 quantity = 4;
     int64 timestamp_ns = 5; // Nanosecond epoch time
 }
 
 message OrderBookLevel {
-    double price = 1;
+    uint64 price = 1;
     uint32 aggregate_quantity = 2;
 }
 

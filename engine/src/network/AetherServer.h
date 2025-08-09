@@ -1,7 +1,7 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include "core/OrderBook.h"
+#include "../core/OrderBook.h"
 #include "order.grpc.pb.h"
 
 #include <grpc/grpc.h>
@@ -24,22 +24,25 @@
 
 #include <iostream>
 #include <chrono>
-#include <unique_ptr>
+#include <memory>
 #include <atomic>
 #include <vector>
 #include <optional>
+#include <fstream>
+#include <sstream>
+#include <unordered_set>
 
 class MatchingEngineImpl final : public aether::MatchingEngine::Service
 {
 public:
-    grpc::Status SubmitOrder(ServerContext* context, 
+    grpc::Status SubmitOrder(grpc::ServerContext* context, 
                                 aether::OrderRequest* request, 
                                 aether::OrderConfirmation* orderConfirmation) override;
     grpc::Status StreamTrades(grpc::ServerContext* context, 
                                 aether::StreamRequest* request, 
                                 aether::Trade* trade, 
                                 grpc::ServerWriter<aether::Trade>* writer) override;
-    grpc::Status StreamOrderBook(ServerContext* context, 
+    grpc::Status StreamOrderBook(grpc::ServerContext* context, 
                                     aether::StreamRequest* request, 
                                     aether::OrderBookSnapshot* snapshot,
                                     grpc::ServerWriter<aether::OrderBookSnapshot>* writer) override;
@@ -50,6 +53,8 @@ private:
     std::optional<OrderSide> convertToOrderSide(aether::OrderSide& orderSide);
     std::optional<OrderType> convertToOrderType(aether::OrderSide& orderType);
     bool isValidSecurity(uint64_t securityId&);
-}
+    std::unordered_set<uint64_t> securities;
+    int loadSecurities();
+};
 
 #endif  // SERVER_H

@@ -1,14 +1,14 @@
 #include "AetherServer.h"
 
 
-grpc::Status MatchingEngineImpl::SubmitOrder(ServerContext* context, 
+grpc::Status MatchingEngineImpl::SubmitOrder(grpc::ServerContext* context, 
                                                 aether::OrderRequest* request, 
-                                                aether::OrderConfirmation* orderConfirmation) override
+                                                aether::OrderConfirmation* orderConfirmation) 
 {
     uint64_t new_id = ++orderId;
     uint64_t securityId = request->security_id;
-    Order::OrderSide side = convertToOrderSide(request->side);
-    Order::OrderType type = convertToOrderType(request->type);
+    OrderSide side = convertToOrderSide(request->side);
+    OrderType type = convertToOrderType(request->type);
     uint32_t quantity = request->quantity;
     uint64_t price = request->price;
     uint64_t time = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
@@ -20,7 +20,7 @@ grpc::Status MatchingEngineImpl::SubmitOrder(ServerContext* context,
         return grpc::Status::(grpc::StatusCode::INVALID_ARGUMENT, "Invalid quantity.");
     } 
 
-    if (type == Order::OrderType::LIMIT && price <= 0) {
+    if (type == OrderType::LIMIT && price <= 0) {
         std::cout << "[gRPC-SERVER] A limit order with an invalid non-positive price of " << price << " has been placed. Rejecting order." << std::endl;
         orderConfirmation->accepted = false;
         orderConfirmation->reason = "A limit order with an invalid non-positive price of " << price << " has been placed.";
@@ -50,19 +50,19 @@ grpc::Status MatchingEngineImpl::SubmitOrder(ServerContext* context,
 }
 
 
-grpc::Status MatchingEngineImpl::StreamTrades(ServerContext* context, 
+grpc::Status MatchingEngineImpl::StreamTrades(grpc::ServerContext* context, 
                                                 aether::StreamRequest* request, 
                                                 aether::Trade* trade,
-                                                grpc::ServerWriter<aether::Trade>* Writer) override
+                                                grpc::ServerWriter<aether::Trade>* Writer) 
 {
     return grpc::Status::OK;
 }
 
 
-grpc::Status MatchingEngineImpl::StreamOrderBook(ServerContext* context, 
+grpc::Status MatchingEngineImpl::StreamOrderBook(grpc::ServerContext* context, 
                                                     aether::StreamRequest* request, 
                                                     aether::OrderBookSnapshot* snapshot,
-                                                    grpc::ServerWriter<aether::OrderBookSnapshot>* Writer) override
+                                                    grpc::ServerWriter<aether::OrderBookSnapshot>* Writer) 
 {
     return grpc::Status::OK;
 }
@@ -71,6 +71,7 @@ grpc::Status MatchingEngineImpl::StreamOrderBook(ServerContext* context,
 void MatchingEngineImpl::RunServer(const std::string& db_path)
 {
     std::string server_address("0.0.0.0:50051");    // NOTE: will probably need to change
+    loadSecurities();
     MatchingEngineImpl service(db_path);
     ServerBuilder builder;
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
@@ -83,13 +84,13 @@ void MatchingEngineImpl::RunServer(const std::string& db_path)
 
 std::optional<OrderSide> MatchingEngineImpl::convertToOrderSide(aether::OrderSide& orderSide)
 {
-    Order::OrderSide res;
+    OrderSide res;
     if (orderSide == aether::OrderSide::BID) {
-        res = Order::OrderSide::BID;
+        res = OrderSide::BID;
     } else if (orderSide == aether::OrderSide::ASK) {
-        res = Order::OrderSide::ASK;
+        res = OrderSide::ASK;
     } else {
-        std::cout << "aether::OrderSide::SIDE_UNKWON" << std::endl;
+        std::cout << "[gRPC-SERVER] aether::OrderSide::SIDE_UNKWON" << std::endl;
         return;
     }
     return res;
@@ -98,11 +99,41 @@ std::optional<OrderSide> MatchingEngineImpl::convertToOrderSide(aether::OrderSid
 
 std::optional<OrderType> MatchingEngineImpl::convertToOrderType(aether::OrderSide& orderType)
 {
-
+    OrderType res;
+    if (OrderType == aether::OrderType::MARKET) {
+        res = OrderType::MARKET;
+    } else if (OrderType == aether::OrderType::LIMIT) {
+        res = OrderType::LIMIT;
+    } else {
+        std::cout << "[gRPC-SERVER] aether::OrderType::TYPE_UNKOWN" << std::endl;
+        return;
+    }
+    return res;
 }
 
 
-bool isValidSecurity(uint64_t& securityId) 
+bool MatchingEngineImpl::isValidSecurity(uint64_t& securityId) 
 {
+    return securities.contains(securityId);
+}
 
+
+int MatchingEngineImpl::loadSecurities()
+{
+    std::ifstream file("../../../engine_config/securities.csv");
+    if (!file.is_open()) {
+        std::cerr << "[gRPC-SERVER] Could not open securities.csv file" << std::endl;
+        return -1;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        size_t commaPos = line.find(',');
+        if (commaPos != std::string::npos) {
+            uint64_t securityId = std::stoull(line.substr(0, commaPos));
+            securities.insert(securityId);
+        }
+    }
+    file.close();
+    return 0;
 }

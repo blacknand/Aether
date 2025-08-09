@@ -27,6 +27,7 @@
 #include <unique_ptr>
 #include <atomic>
 #include <vector>
+#include <optional>
 
 class MatchingEngineImpl final : public aether::MatchingEngine::Service
 {
@@ -46,6 +47,9 @@ public:
 private:
     OrderBook orderBook;
     std::atomic<uint64_t> orderId {0};
+    std::optional<OrderSide> convertToOrderSide(aether::OrderSide& orderSide);
+    std::optional<OrderType> convertToOrderType(aether::OrderSide& orderType);
+    bool isValidSecurity(uint64_t securityId&);
 }
 
 #endif  // SERVER_H

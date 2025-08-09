@@ -1,6 +1,7 @@
 #include "../src/core/OrderBook.h"
 
 #include <gtest/gtest.h>
+#include <optional>
 
 
 class OrderBookTest : public testing::Test
@@ -77,8 +78,8 @@ TEST_F(OrderBookTest, WalkTheBook_LimitOrder)
 
 TEST_F(OrderBookTest, MarketOrderRejection)
 {
-    Order marketBuyOrder = {12, 12, OrderSide::BID, OrderType::MARKET, 100, 10, 0};
-    ASSERT_TRUE(book.addOrder(marketBuyOrder).empty());
+    Order marketBuyOrder = {12, 12, OrderSide::BID, OrderType::MARKET, std::nullopt, 10, 0};
+    ASSERT_TRUE(book.addOrder(marketBuyOrder).value().empty());
 }
 
 
@@ -100,7 +101,7 @@ TEST_F(OrderBookTest, NoMatch_PriceNotGoodEnough)
     Order restingSellOrder = {15, 15, OrderSide::ASK, OrderType::LIMIT, 101, 10, 0};
     book.addOrder(restingSellOrder);
     Order limitBuyOrder = {16, 16, OrderSide::BID, OrderType::LIMIT, 100, 10, 0};
-    ASSERT_TRUE(book.addOrder(limitBuyOrder).empty());
+    ASSERT_TRUE(book.addOrder(limitBuyOrder).value().empty());
     ASSERT_EQ(book.getBestBid().value_or(0), 100);
 }
 
@@ -151,19 +152,18 @@ TEST_F(OrderBookTest, FullMatch_MarketOrder)
     Order restingLimitAsk = {22, 22, OrderSide::ASK, OrderType::LIMIT, 100, 10, 0};
     book.addOrder(restingLimitAsk);
     ASSERT_EQ(book.getBestAsk().value_or(0), 100);
-    Order aggressiveMarketBid = {23, 23, OrderSide::BID, OrderType::MARKET, 100, 10, 0};
+    Order aggressiveMarketBid = {23, 23, OrderSide::BID, OrderType::MARKET, std::nullopt, 10, 0};
     book.addOrder(aggressiveMarketBid);
     ASSERT_FALSE(book.getBestBid().has_value());
     ASSERT_FALSE(book.getBestAsk().has_value());
 }
 
 
-TEST_F(OrderBookTest, MarketOrderRestsWithNoLiquidity)
+TEST_F(OrderBookTest, MarketOrderFailsWithNoLiquidity)
 {
-    Order marketOrderBid = {23, 23, OrderSide::BID, OrderType::MARKET, 100, 10, 0};
+    Order marketOrderBid = {23, 23, OrderSide::BID, OrderType::MARKET, std::nullopt, 10, 0};
     book.addOrder(marketOrderBid);
-    ASSERT_EQ(book.getBidCountAt(100), 1);
-    ASSERT_EQ(book.getBestBid().value_or(0), 100);
+    ASSERT_FALSE(book.getBestBid().has_value());
 }
 
 
@@ -171,22 +171,33 @@ TEST_F(OrderBookTest, PartialFill_MarketOrder)
 {
     Order restingLimitAsk = {25, 25, OrderSide::ASK, OrderType::LIMIT, 101, 5, 0};
     book.addOrder(restingLimitAsk);
-    Order marketOrderBid = {24, 24, OrderSide::BID, OrderType::MARKET, 100, 10, 0};
+    Order marketOrderBid = {24, 24, OrderSide::BID, OrderType::MARKET, std::nullopt, 10, 0};
     book.addOrder(marketOrderBid);
     ASSERT_FALSE(book.getBestAsk().has_value());
     ASSERT_TRUE(book.getBestBid().has_value());
-    ASSERT_EQ(book.getBestBid().value_or(0), 100);
-    ASSERT_EQ(book.getTopBidAt(100)->quantity, 5);
+    ASSERT_EQ(book.getBestBid().value_or(0), 101);
+    ASSERT_EQ(book.getTopBidAt(101)->quantity, 5);
+
+    const Order* newRestingBid = book.getTopBidAt(101);
+    ASSERT_NE(newRestingBid, nullptr);
+    ASSERT_EQ(newRestingBid->quantity, 5);
+    ASSERT_EQ(newRestingBid->type, OrderType::LIMIT);
 }
 
 
 TEST_F(OrderBookTest, WalkTheBook_MarketOrder)
+/* NOTE: 
+ * The market order itself does not walk the book,
+ * when the marker order has no more ask orders that it can match with,
+ * it is then implicitly converted to a limit order which
+ * then walks the book. This is because a market order CANNOT walk.
+*/
 {
     Order restingLimitAsk1 = {28, 28, OrderSide::ASK, OrderType::LIMIT, 100, 5, 0};
     Order restingLimitAsk2 = {29, 29, OrderSide::ASK, OrderType::LIMIT, 95, 5, 0};
     book.addOrder(restingLimitAsk1);
     book.addOrder(restingLimitAsk2);
-    Order marketOrderBid = {27, 27, OrderSide::BID, OrderType::MARKET, 100, 10, 0};
+    Order marketOrderBid = {27, 27, OrderSide::BID, OrderType::MARKET, std::nullopt, 10, 0};
     book.addOrder(marketOrderBid);
     ASSERT_FALSE(book.getBestBid().has_value());
     ASSERT_FALSE(book.getBestAsk().has_value());

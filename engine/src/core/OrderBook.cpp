@@ -1,6 +1,6 @@
 #include "OrderBook.h"
 
-std::vector<Trade> OrderBook::addOrder(Order& order) 
+std::optional<std::vector<Trade>> OrderBook::addOrder(Order& order) 
 {
     // TODO: will need to add MARKET (FOK) logic etc,
 
@@ -31,7 +31,17 @@ std::vector<Trade> OrderBook::addOrder(Order& order)
         }
     }
 
-    if (order.quantity > 0) {
+    if (order.quantity > 0 && order.type == OrderType::MARKET) {
+        if (!trades.empty()) {
+            std::optional<uint64_t> lastPrice = trades.back().price;
+            order.price = lastPrice;
+            order.type = OrderType::LIMIT;
+        } else {
+            return std::nullopt;
+        }
+    }
+
+    if (order.quantity > 0 && order.type == OrderType::LIMIT) {
         if (order.side == OrderSide::BID) {
             bids[order.price].push_back(order);
             auto it = std::prev(bids[order.price].end());
@@ -71,7 +81,7 @@ bool OrderBook::removeOrder(uint64_t orderId)
 
 void OrderBook::processTrade(Order& aggressiveOrder, uint64_t restingOrderId, std::vector<Trade>& trades)
 {
-    static uint32_t nextTradeId = 1;        // TODO: Improve this
+    nextTradeId++;        
     auto& restingOrderIter = orderIdIndex.at(restingOrderId);
     uint32_t tradeQuantity = std::min(aggressiveOrder.quantity, restingOrderIter->quantity);
     trades.emplace_back(Trade{

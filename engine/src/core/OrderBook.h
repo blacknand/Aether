@@ -8,11 +8,13 @@
 #include <chrono>
 #include <vector>
 #include <iterator>
+#include <atomic>
+#include <optional>
 
 #include "Order.h"
 #include "Trade.h"
 
-using price = std::uint64_t;
+using price = std::optional<std::uint64_t>;
 
 class OrderBook
 {
@@ -20,9 +22,10 @@ private:
     std::map<price, std::list<Order>> asks;
     std::map<price, std::list<Order>, std::greater<price>> bids;
     std::unordered_map<uint64_t, std::list<Order>::iterator> orderIdIndex;
+    std::atomic<uint64_t> nextTradeId = 1;
 public:
-    std::vector<Trade> addOrder(Order& order);
-    bool removeOrder(price orderId);
+    std::optional<std::vector<Trade>> addOrder(Order& order);
+    bool removeOrder(uint64_t orderId);
     std::optional<price> getBestBid() const;
     std::optional<price> getBestAsk() const;
     void processTrade(Order& aggressiveOrder, uint64_t restingOrderId, std::vector<Trade>& trades);

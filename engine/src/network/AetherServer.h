@@ -50,12 +50,17 @@ public:
 private:
     OrderBook orderBook;
     std::atomic<uint64_t> orderId {0};
+    std::unordered_set<uint64_t> securities;
+    const std::string& dbPath;
+
+    // Helpers
     std::optional<OrderSide> convertToOrderSide(aether::OrderSide& orderSide);
     std::optional<OrderType> convertToOrderType(aether::OrderType& orderType);
     bool isValidSecurity(uint64_t& securityId);
-    std::unordered_set<uint64_t> securities;
     int loadSecurities();
-    const std::string& dbPath;
+    grpc::Status buildErrorResponse(aether::OrderConfirmation* confirmation, 
+                                    const std::string& log_msg, 
+                                    const std::string& reason);
 };
 
 #endif  // SERVER_H

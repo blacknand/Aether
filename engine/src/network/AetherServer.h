@@ -32,29 +32,30 @@
 #include <sstream>
 #include <unordered_set>
 
+void RunServer(const std::string& db_path);
+
 class MatchingEngineImpl final : public aether::MatchingEngine::Service
 {
 public:
+    MatchingEngineImpl(const std::string& db_path) : dbPath(db_path) {}
     grpc::Status SubmitOrder(grpc::ServerContext* context, 
-                                aether::OrderRequest* request, 
+                                const aether::OrderRequest* request, 
                                 aether::OrderConfirmation* orderConfirmation) override;
     grpc::Status StreamTrades(grpc::ServerContext* context, 
-                                aether::StreamRequest* request, 
-                                aether::Trade* trade, 
+                                const aether::StreamRequest* request, 
                                 grpc::ServerWriter<aether::Trade>* writer) override;
     grpc::Status StreamOrderBook(grpc::ServerContext* context, 
-                                    aether::StreamRequest* request, 
-                                    aether::OrderBookSnapshot* snapshot,
+                                    const aether::StreamRequest* request, 
                                     grpc::ServerWriter<aether::OrderBookSnapshot>* writer) override;
-    void RunServer(const std::string& db_path);
 private:
     OrderBook orderBook;
     std::atomic<uint64_t> orderId {0};
     std::optional<OrderSide> convertToOrderSide(aether::OrderSide& orderSide);
-    std::optional<OrderType> convertToOrderType(aether::OrderSide& orderType);
-    bool isValidSecurity(uint64_t securityId&);
+    std::optional<OrderType> convertToOrderType(aether::OrderType& orderType);
+    bool isValidSecurity(uint64_t& securityId);
     std::unordered_set<uint64_t> securities;
     int loadSecurities();
+    const std::string& dbPath;
 };
 
 #endif  // SERVER_H

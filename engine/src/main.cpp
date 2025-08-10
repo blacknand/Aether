@@ -1,7 +1,8 @@
 #include "core/OrderBook.h"
-#include <iostream>
 
-int main() {
+#include "network/AetherServer.h"
 
+int main(int argc, char** argv) {
+    RunServer();
     return 0;
 }

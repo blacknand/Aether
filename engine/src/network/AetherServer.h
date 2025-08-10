@@ -31,6 +31,10 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_set>
+#include <condition_variable>
+#include <mutex>
+#include <queue>
+#include <thread>
 
 void RunServer(const std::string& db_path);
 
@@ -52,6 +56,10 @@ private:
     std::atomic<uint64_t> orderId {0};
     std::unordered_set<uint64_t> securities;
     const std::string& dbPath;
+    std::queue<Trade> trades;
+    std::condition_variable dataCond;
+    mutable std::mutex mut;
+    std::unique_lock lock{mut, std::defer_lock};
 
     // Helpers
     std::optional<OrderSide> convertToOrderSide(aether::OrderSide& orderSide);

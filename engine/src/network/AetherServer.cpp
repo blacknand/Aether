@@ -48,6 +48,17 @@ grpc::Status MatchingEngineImpl::SubmitOrder(grpc::ServerContext* context,
         .price = price, 
         .timestamp = time};
     std::optional<std::vector<Trade>> trades = orderBook.addOrder(order);
+
+    if (!trades.has_value())
+        return buildErrorResponse(orderConfirmation, "[gRPC-SERVER] No trades to stream. Rejecting order.",
+                                    "No trades to stream.");
+    
+    std::unique_lock lock{mut};
+    for (const auto& trade : trades.value())
+        queue.push(trade);
+    lock.unlock();
+    dataCond.notify_one();
+    
     orderConfirmation->set_order_id(new_id);
     orderConfirmation->set_accepted(true);
     orderConfirmation->set_reason("Valid order. All checks passed.");
@@ -57,15 +68,25 @@ grpc::Status MatchingEngineImpl::SubmitOrder(grpc::ServerContext* context,
 
 grpc::Status MatchingEngineImpl::StreamTrades(grpc::ServerContext* context, 
                                                 const aether::StreamRequest* request, 
-                                                grpc::ServerWriter<aether::Trade>* Writer) 
+                                                grpc::ServerWriter<aether::Trade>* writer) 
 {
+    while (!context->isCancelled()) {
+        std::unique_lock lock{mut};
+        dataCond.wait(lock, [this]{ return !trades.empty(); });
+        Trade& trade = trades.front();
+        trades.pop();
+        lock.unlock();
+        writer->Write(trade);
+    }
+
+    std::cout << "[gRPC-SERVER] Client disconnected from the trades stream." << std::endl;
     return grpc::Status::OK;
 }
 
 
 grpc::Status MatchingEngineImpl::StreamOrderBook(grpc::ServerContext* context, 
                                                     const aether::StreamRequest* request, 
-                                                    grpc::ServerWriter<aether::OrderBookSnapshot>* Writer) 
+                                                    grpc::ServerWriter<aether::OrderBookSnapshot>* writer) 
 {
     return grpc::Status::OK;
 }

@@ -15,47 +15,29 @@ grpc::Status MatchingEngineImpl::SubmitOrder(grpc::ServerContext* context,
     std::optional<uint64_t> price = request->price();
     uint64_t time = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
 
-    if (!side.has_value() || !type.has_value()) {
-        std::cout << "[gRPC-SERVER] Invalid order side or invalid order type provided. Rejecting order." << std::endl;
-        orderConfirmation->set_accepted(false);
-        orderConfirmation->set_reason("Invalid order side or invalid order type.");
-        return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Invalid order side or invalid order type.");
-    }
+    if (!side.has_value() || !type.has_value()) 
+        return buildErrorResponse(orderConfirmation, "[gRPC-SERVER] Invalid order side or invalid order type provided. Rejecting order.",
+                                    "Invalid order side or invalid order type.");
 
-    if (type.has_value() && type.value() == OrderType::LIMIT && !price.has_value()) {
-        std::cout << "[gRPC-SERVER] Limit order with no price provided. Rejecting order." << std::endl;
-        orderConfirmation->set_accepted(false);
-        orderConfirmation->set_reason("A limit order must have a price provided.");
-        return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Invalid limit order with no price");
-    }
+    if (type.has_value() && type.value() == OrderType::LIMIT && !price.has_value()) 
+        return buildErrorResponse(orderConfirmation, "[gRPC-SERVER] Limit order with no price provided. Rejecting order.",
+                                    "A limit order must have a price provided.");
 
-    if (quantity <= 0) {
-        std::cout << "[gRPC-SERVER] An order with an invalid non-positive quantity of " << quantity << " has been placed. Rejecting order." << std::endl;
-        orderConfirmation->set_accepted(false);
-        orderConfirmation->set_reason("An order with an invalid non-positive quantity of " + std::to_string(quantity) + " has been placed.");
-        return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Invalid quantity.");
-    } 
+    if (quantity <= 0) 
+        return buildErrorResponse(orderConfirmation, "[gRPC-SERVER] An order with an invalid non-positive quantity of " + std::to_string(quantity) + " has been placed. Rejecting order.",
+                                    "An order with an invalid non-positive quantity of " + std::to_string(quantity) + " has been placed.");
 
-    if (type.value() == OrderType::LIMIT && price.value() <= 0) {
-        std::cout << "[gRPC-SERVER] A limit order with an invalid non-positive price of " << price.value() << " has been placed. Rejecting order." << std::endl;
-        orderConfirmation->set_accepted(false);
-        orderConfirmation->set_reason("A limit order with an invalid non-positive price of " + std::to_string(price.value()) + " has been placed.");
-        return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Invalid price for LIMIT order.");
-    }
+    if (type.value() == OrderType::LIMIT && price.value() <= 0) 
+        return buildErrorResponse(orderConfirmation, "[gRPC-SERVER] A limit order with an invalid non-positive price of " + std::to_string(price.value()) + " has been placed. Rejecting order.",
+                                    "A limit order with an invalid non-positive price of " + std::to_string(price.value()) + " has been placed.");
 
-    if (type == OrderType::MARKET && price.has_value()) {
-        std::cout << "[gRPC-SERVER] A market order with a specified price has been placed. Rejecting order." << std::endl;
-        orderConfirmation->set_accepted(false);
-        orderConfirmation->set_reason("A market order with a specified price has been placed.");
-        return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Market order cannot have a specified price.");
-    }
+    if (type == OrderType::MARKET && price.has_value())
+        return buildErrorResponse(orderConfirmation, "[gRPC-SERVER] A market order with a specified price has been placed. Rejecting order.",
+                                    "A market order with a specified price has been placed.");
 
-    if (!isValidSecurity(securityId)) {
-        std::cout << "[gRPC-SERVER] Invalid security ID. Rejecting order." << std::endl;
-        orderConfirmation->set_accepted(false);
-        orderConfirmation->set_reason("Invalid security ID. Rejecting order.");
-        return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Invalid security ID.");
-    }
+    if (!isValidSecurity(securityId)) 
+        return buildErrorResponse(orderConfirmation, "[gRPC-SERVER] Invalid security ID. Rejecting order.",
+                                    "Invalid security ID.");
 
     Order order{
         .orderId = new_id, 
@@ -157,4 +139,15 @@ int MatchingEngineImpl::loadSecurities()
     }
     file.close();
     return 0;
+}
+
+
+grpc::Status MatchingEngineImpl::buildErrorResponse(aether::OrderConfirmation* confirmation, 
+                                const std::string& log_msg, 
+                                const std::string& reason)
+{
+    std::cout << log_msg << std::endl;
+    confirmation->set_accepted(false);
+    confirmation->set_reason(reason);
+    return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, reason);
 }

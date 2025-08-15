@@ -4,7 +4,7 @@ project(AetherServer LANGUAGES CXX)
 find_package(Protobuf REQUIRED)
 find_package(gRPC REQUIRED)
 
-set(PROTO_FILES ${CMAKE_SOURCE_DIR}/protos/order.proto)
+set(PROTO_FILES ${CMAKE_SOURCE_DIR}/protos/order_managment.proto)
 set(PROTO_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/protos)
 
 message(STATUS "DEBUG: The path to the proto file is set to: ${PROTO_FILES}")

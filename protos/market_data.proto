@@ -1,0 +1,21 @@
+syntax = "proto3";
+import "order_management.proto";
+
+package aether_market_data;
+
+service StreamOrderBookState {
+    rpc StreamOrderBook(StreamRequest) returns (stream OrderDelta);
+}
+
+enum DeltaAction {
+    ADD = 0;
+    UPDATE = 1;
+    DELETE = 2;
+}
+
+message OrderDelta {
+    DeltaAction action = 1;
+    order_managment.OrderSide side = 2;
+    uint64 price = 3;
+    uint64 quantity = 4;
+}

@@ -134,19 +134,22 @@ std::optional<price> OrderBook::getBestAsk() const
 }
 
 
-size_t OrderBook::getAskCountAt(price p) const {
+size_t OrderBook::getAskCountAt(price p) const 
+{
     auto it = asks.find(p);
     return (it != asks.end()) ? it->second.size() : 0;
 }
 
 
-size_t OrderBook::getBidCountAt(price p) const {
+size_t OrderBook::getBidCountAt(price p) const 
+{
     auto it = bids.find(p);
     return (it != bids.end()) ? it->second.size() : 0;
 }
 
 
-const Order* OrderBook::getTopAskAt(price p) const {
+const Order* OrderBook::getTopAskAt(price p) const 
+{
     auto it = asks.find(p);
     if (it == asks.end() || it->second.empty()) {
         return nullptr;
@@ -155,7 +158,8 @@ const Order* OrderBook::getTopAskAt(price p) const {
 }
 
 
-const Order* OrderBook::getTopBidAt(price p) const {
+const Order* OrderBook::getTopBidAt(price p) const 
+{
     auto it = bids.find(p);
     if (it == bids.end() || it->second.empty()) {
         return nullptr;
@@ -164,10 +168,32 @@ const Order* OrderBook::getTopBidAt(price p) const {
 }
 
 
-const Order* OrderBook::getLastBidAt(price p) const {
+const Order* OrderBook::getLastBidAt(price p) const 
+{
     auto it = bids.find(p);
     if (it == bids.end() || it->second.empty()) {
         return nullptr;
     }
     return &it->second.back(); 
+}
+
+
+OrderBookState getSnapshot()
+{
+    OrderBookState state;
+    for (const auto& [key, value] : asks) {
+        uint32_t totalShares {0};
+        for (const auto& order : value)
+            totalShares += order.value().quantity;
+        state.askPriceLevel.emplace_back(key, total);
+    }
+
+    for (const auto& [key, value] : bids) {
+        uint32_t totalShares {0};
+        for (const auto& order : value)
+            totalShares += order.value().quantity;
+        state.bidPriceLevel.emplace_back(key, total);
+    }
+
+    return state;
 }

@@ -10,9 +10,13 @@
 #include <iterator>
 #include <atomic>
 #include <optional>
+#include <memory>
 
 #include "Order.h"
 #include "Trade.h"
+#include "OrderBookState.h"
+#include "../utils/BlockingQueue.h"
+#include "market_data.grpc.pb.h"
 
 using price = std::optional<std::uint64_t>;
 
@@ -24,10 +28,12 @@ private:
     std::unordered_map<uint64_t, std::list<Order>::iterator> orderIdIndex;
     std::atomic<uint64_t> nextTradeId = 1;
 public:
+    OrderBook(std::shared_ptr<BlockingQueue<aether_market_data::OrderDelta>> blockingQueue) : tradeQueue(blockingQueue) {}
     std::optional<std::vector<Trade>> addOrder(Order& order);
     bool removeOrder(uint64_t orderId);
     std::optional<price> getBestBid() const;
     std::optional<price> getBestAsk() const;
+    std::shared_ptr<BlockingQueue<aether_market_data::OrderDelta>> tradeQueue;
     void processTrade(Order& aggressiveOrder, uint64_t restingOrderId, std::vector<Trade>& trades);
 
     size_t getAskCountAt(price p) const;
@@ -35,6 +41,7 @@ public:
     const Order* getTopAskAt(price p) const;
     const Order* getTopBidAt(price p) const;
     const Order* getLastBidAt(price p) const;
+    OrderBookState getSnapshot();
 };
 
 #endif // ORDER_BOOK_H

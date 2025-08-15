@@ -53,11 +53,11 @@ grpc::Status MatchingEngineImpl::SubmitOrder(grpc::ServerContext* context,
         return buildErrorResponse(orderConfirmation, "[gRPC-SERVER] No trades to stream. Rejecting order.",
                                     "No trades to stream.");
     
-    std::unique_lock lock{mut};
+    std::unique_lock lock{streamTradeMut};
     for (const auto& trade : trades.value())
-        queue.push(trade);
+        tradesQ.push(trade);
     lock.unlock();
-    dataCond.notify_one();
+    tradesReady.notify_one();
     
     orderConfirmation->set_order_id(new_id);
     orderConfirmation->set_accepted(true);
@@ -70,13 +70,20 @@ grpc::Status MatchingEngineImpl::StreamTrades(grpc::ServerContext* context,
                                                 const aether::StreamRequest* request, 
                                                 grpc::ServerWriter<aether::Trade>* writer) 
 {
-    while (!context->isCancelled()) {
-        std::unique_lock lock{mut};
-        dataCond.wait(lock, [this]{ return !trades.empty(); });
-        Trade& trade = trades.front();
-        trades.pop();
+    while (!context->IsCancelled()) {
+        std::unique_lock lock{streamTradeMut};
+        tradesReady.wait(lock, [this]{ return !tradesQ.empty(); });
+        Trade& trade = tradesQ.front();
+        tradesQ.pop();
         lock.unlock();
-        writer->Write(trade);
+        aether::Trade aetherTrade{
+            .trade_id = trade.tradeId,
+            .securityId = trade.securityId,
+            .price = trade.price.value(),
+            .quantity = trade.quantity,
+            .timestamp_ns = trade.timestamp
+        };
+        writer->Write(aetherTrade);
     }
 
     std::cout << "[gRPC-SERVER] Client disconnected from the trades stream." << std::endl;
@@ -84,19 +91,24 @@ grpc::Status MatchingEngineImpl::StreamTrades(grpc::ServerContext* context,
 }
 
 
-grpc::Status MatchingEngineImpl::StreamOrderBook(grpc::ServerContext* context, 
-                                                    const aether::StreamRequest* request, 
-                                                    grpc::ServerWriter<aether::OrderBookSnapshot>* writer) 
-{
-    return grpc::Status::OK;
-}
+// grpc::Status MatchingEngineImpl::StreamOrderBook(grpc::ServerContext* context, 
+//                                                     const aether::StreamRequest* request, 
+//                                                     grpc::ServerWriter<aether_market_data::OrderDelta>* writer) 
+// {
+//     while (!context->IsCancelled()) {
+//         std::unique_lock lock{streamDeltaMut};
+//         tradeDelta.wait(lock, [this]{  })
+//     }
+    
+//     return grpc::Status::OK;
+// }
 
 
-void RunServer(const std::string& db_path)
+void RunServer(const std::string& securitiesPath)
 {
     std::string server_address("0.0.0.0:50051");    // NOTE: will probably need to change
-    MatchingEngineImpl service(db_path);
-    service.loadSecurities();
+    MatchingEngineImpl service(securitiesPath);
+    service.loadSecurities(securitiesPath);
     grpc::ServerBuilder builder;
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
     builder.RegisterService(&service);
@@ -142,9 +154,9 @@ bool MatchingEngineImpl::isValidSecurity(uint64_t& securityId)
 }
 
 
-int MatchingEngineImpl::loadSecurities()
+int MatchingEngineImpl::loadSecurities(const std::string& securitiesPath)
 {
-    std::ifstream file("../../../engine_config/securities.csv");
+    std::ifstream file(securitiesPath);
     if (!file.is_open()) {
         std::cerr << "[gRPC-SERVER] Could not open securities.csv file" << std::endl;
         return -1;

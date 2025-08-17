@@ -26,24 +26,23 @@
 #include <queue>
 #include <thread>
 
-void RunServer(const std::string& securitiesPath);
+void RunServer();
 
 class MatchingEngineImpl final : public aether::MatchingEngine::Service
 {
 public:
-    MatchingEngineImpl(const std::string& securitiesPath_) : securitiesPath(securitiesPath_) {}
+    MatchingEngineImpl(std::shared_ptr<OrderBook> orderBook_) : orderBook(orderBook_) {}
     grpc::Status SubmitOrder(grpc::ServerContext* context, 
                                 const aether::OrderRequest* request, 
                                 aether::OrderConfirmation* orderConfirmation) override;
     grpc::Status StreamTrades(grpc::ServerContext* context, 
                                 const aether::StreamRequest* request, 
                                 grpc::ServerWriter<aether::Trade>* writer) override;
-    int loadSecurities(const std::string& securitiesPath);
 private:
-    OrderBook orderBook;
+    std::shared_ptr<OrderBook> orderBook;
     std::atomic<uint64_t> orderId {0};
-    std::unordered_set<uint64_t> securities;
-    const std::string& securitiesPath;
+    // std::unordered_set<uint64_t> securities;
+    // const std::string& securitiesPath;
     std::queue<Trade> tradesQ;
     std::condition_variable tradesReady;
     mutable std::mutex streamTradeMut;
@@ -51,7 +50,6 @@ private:
     // Helpers
     std::optional<OrderSide> convertToOrderSide(aether::OrderSide& orderSide);
     std::optional<OrderType> convertToOrderType(aether::OrderType& orderType);
-    bool isValidSecurity(uint64_t& securityId);
     grpc::Status buildErrorResponse(aether::OrderConfirmation* confirmation, 
                                     const std::string& log_msg, 
                                     const std::string& reason);
@@ -61,13 +59,16 @@ private:
 class StreamOrderBookStateImpl final : public aether_market_data::StreamOrderBookState::Service
 {
 public:
-    StreamOrderBookStateImpl(std::shared_ptr<BlockingQueue<aether_market_data::OrderDelta>> blockingQueue) : tradeQueue(blockingQueue) {}
+    StreamOrderBookStateImpl(std::shared_ptr<BlockingQueue<aether_market_data::OrderDelta>> blockingQueue, std::shared_ptr<OrderBook> orderBook_) : 
+                                                                                                                tradeQueue(blockingQueue),
+                                                                                                                orderBook(orderBook_) {}
     grpc::Status StreamOrderBook(grpc::ServerContext* context, 
                                     const aether::StreamRequest* request, 
                                     grpc::ServerWriter<aether_market_data::OrderDelta>* writer) override;
 
 private:
     std::shared_ptr<BlockingQueue<aether_market_data::OrderDelta>> tradeQueue;
-}
+    std::shared_ptr<OrderBook> orderBook;
+};
 
 #endif  // SERVER_H

@@ -35,7 +35,7 @@ grpc::Status MatchingEngineImpl::SubmitOrder(grpc::ServerContext* context,
         return buildErrorResponse(orderConfirmation, "[gRPC-SERVER] A market order with a specified price has been placed. Rejecting order.",
                                     "A market order with a specified price has been placed.");
 
-    if (!isValidSecurity(securityId)) 
+    if (!orderBook->isValidSecurity(securityId)) 
         return buildErrorResponse(orderConfirmation, "[gRPC-SERVER] Invalid security ID. Rejecting order.",
                                     "Invalid security ID.");
 
@@ -47,7 +47,7 @@ grpc::Status MatchingEngineImpl::SubmitOrder(grpc::ServerContext* context,
         .quantity = quantity, 
         .price = price, 
         .timestamp = time};
-    std::optional<std::vector<Trade>> trades = orderBook.addOrder(order);
+    std::optional<std::vector<Trade>> trades = orderBook->addOrder(order);
 
     if (!trades.has_value())
         return buildErrorResponse(orderConfirmation, "[gRPC-SERVER] No trades to stream. Rejecting order.",
@@ -91,28 +91,24 @@ grpc::Status MatchingEngineImpl::StreamTrades(grpc::ServerContext* context,
 }
 
 
-// grpc::Status MatchingEngineImpl::StreamOrderBook(grpc::ServerContext* context, 
-//                                                     const aether::StreamRequest* request, 
-//                                                     grpc::ServerWriter<aether_market_data::OrderDelta>* writer) 
-// {
-//     while (!context->IsCancelled()) {
-//         std::unique_lock lock{streamDeltaMut};
-//         tradeDelta.wait(lock, [this]{  })
-//     }
-    
-//     return grpc::Status::OK;
-// }
-
-
 void RunServer(const std::string& securitiesPath)
 {
     std::string server_address("0.0.0.0:50051");    // NOTE: will probably need to change
-    MatchingEngineImpl service(securitiesPath);
-    service.loadSecurities(securitiesPath);
+
+    auto blockingQueue = std::make_shared<BlockingQueue<aether_market_data::OrderDelta>>();
+    auto orderBook = std::make_shared<OrderBook>(blockingQueue);
+
+    orderBook->loadSecurities(securitiesPath);
+
+    MatchingEngineImpl matchingEngineService(orderBook);
+    StreamOrderBookStateImpl streamOrderBookService(blockingQueue, orderBook); 
     grpc::ServerBuilder builder;
+
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-    builder.RegisterService(&service);
+    builder.RegisterService(&matchingEngineService);
+    builder.RegisterService(&streamOrderBookService);
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+
     std::cout << "gRPC Aether Server listening on " << server_address << std::endl;
     server->Wait();
 }
@@ -148,33 +144,6 @@ std::optional<OrderType> MatchingEngineImpl::convertToOrderType(aether::OrderTyp
 }
 
 
-bool MatchingEngineImpl::isValidSecurity(uint64_t& securityId) 
-{
-    return securities.contains(securityId);
-}
-
-
-int MatchingEngineImpl::loadSecurities(const std::string& securitiesPath)
-{
-    std::ifstream file(securitiesPath);
-    if (!file.is_open()) {
-        std::cerr << "[gRPC-SERVER] Could not open securities.csv file" << std::endl;
-        return -1;
-    }
-
-    std::string line;
-    while (std::getline(file, line)) {
-        size_t commaPos = line.find(',');
-        if (commaPos != std::string::npos) {
-            uint64_t securityId = std::stoull(line.substr(0, commaPos));
-            securities.insert(securityId);
-        }
-    }
-    file.close();
-    return 0;
-}
-
-
 grpc::Status MatchingEngineImpl::buildErrorResponse(aether::OrderConfirmation* confirmation, 
                                 const std::string& log_msg, 
                                 const std::string& reason)
@@ -183,4 +152,38 @@ grpc::Status MatchingEngineImpl::buildErrorResponse(aether::OrderConfirmation* c
     confirmation->set_accepted(false);
     confirmation->set_reason(reason);
     return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, reason);
+}
+
+
+grpc::Status StreamOrderBookStateImpl::StreamOrderBook(grpc::ServerContext* context, 
+                                const aether::StreamRequest* request, 
+                                grpc::ServerWriter<aether_market_data::OrderDelta>* writer) 
+{
+    OrderBookState bookState = orderBook->getSnapshot(); 
+    for (int i = 0; i < bookState.askPriceLevel.size(); i++) {
+        aether_market_data::OrderDelta delta{
+            .action = aether_market_data::DeltaAction::ADD,
+            .side = order_managment::OrderSide::ASK,
+            .price = bookState.askPriceLevel[i].price,
+            .quantity = bookState.askPriceLevel[i].totalShares
+        };
+        writer->Write(delta);
+    }
+
+    for (int i = 0; i < bookState.bidPriceLevel.size(); i++) {
+        aether_market_data::OrderDelta delta{
+            .action = aether_market_data::DeltaAction::ADD,
+            .side = order_managment::OrderSide::BID,
+            .price = bookState.bidPriceLevel[i].price,
+            .quantity = bookState.bidPriceLevel[i].totalShares
+        };
+        writer->Write(delta);
+    }
+
+    while (!context->IsCancelled()) {
+        aether_market_data::OrderDelta delta = tradeQueue->pop();
+        writer->Write(delta);
+    }
+
+    return grpc::Status::OK;
 }

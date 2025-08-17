@@ -43,7 +43,7 @@ std::optional<std::vector<Trade>> OrderBook::addOrder(Order& order)
     }
 
     if (order.quantity > 0 && order.type == OrderType::LIMIT) {
-        auto& protoSide = (order.side == OrderSide::BID) ? order_managment::OrderSide::BID : order_managment::OrderSide::ASK;
+        auto& protoSide = (order.side == OrderSide::BID) ? order_management::OrderSide::BID : order_management::OrderSide::ASK;
         auto& mapToUse = (order.side == OrderSide::BID) ? bids : asks;
         bool mapContainsPriceLevel = mapsToUse.contains(order.price);
         mapsToUse[order.price].push_back(order);
@@ -56,7 +56,7 @@ std::optional<std::vector<Trade>> OrderBook::addOrder(Order& order)
 
         aether_market_data::OrderDelta delta{
             .action = (mapContainsPriceLevel) ? aether_market_data::DeltaAction::UPDATE : aether_market_data::DeltaAction::ADD,
-            .side = order_managment::OrderSide::protoSide,
+            .side = order_management::OrderSide::protoSide,
             .price = order.price,
             .quantity = newQuantity
         };
@@ -95,7 +95,7 @@ bool OrderBook::removeOrder(uint64_t orderId)
         action = aether_market_data::DeltaAction::UPDATE;
     }
    
-   auto& deltaSide = (side == OrderSide::BID) ? order_managment::OrderSide::BID : order_managment::OrderSide::ASK;
+   auto& deltaSide = (side == OrderSide::BID) ? order_management::OrderSide::BID : order_management::OrderSide::ASK;
 
     aether_market_data::OrderDelta delta{
         .action = action,
@@ -140,7 +140,7 @@ void OrderBook::processTrade(Order& aggressiveOrder, uint64_t restingOrderId, st
         for (const auto& order : mapToUse.at(p)) 
             newTotalQuantity += order.quantity;
 
-        order_managment::OrderSide deltaSide = (side == OrderSide::BID) ? order_managment::OrderSide::BID : order_managment::OrderSide::ASK;
+        order_management::OrderSide deltaSide = (side == OrderSide::BID) ? order_management::OrderSide::BID : order_management::OrderSide::ASK;
         aether_market_data::DeltaAction action = (newTotalQuantity > 0) ? aether_market_data::DeltaAction::UPDATE : aether_market_data::DeltaAction::DELETE;
 
         aether_market_data::OrderDelta delta{

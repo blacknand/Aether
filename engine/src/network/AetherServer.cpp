@@ -163,7 +163,7 @@ grpc::Status StreamOrderBookStateImpl::StreamOrderBook(grpc::ServerContext* cont
     for (int i = 0; i < bookState.askPriceLevel.size(); i++) {
         aether_market_data::OrderDelta delta{
             .action = aether_market_data::DeltaAction::ADD,
-            .side = order_managment::OrderSide::ASK,
+            .side = order_management::OrderSide::ASK,
             .price = bookState.askPriceLevel[i].price,
             .quantity = bookState.askPriceLevel[i].totalShares
         };
@@ -173,7 +173,7 @@ grpc::Status StreamOrderBookStateImpl::StreamOrderBook(grpc::ServerContext* cont
     for (int i = 0; i < bookState.bidPriceLevel.size(); i++) {
         aether_market_data::OrderDelta delta{
             .action = aether_market_data::DeltaAction::ADD,
-            .side = order_managment::OrderSide::BID,
+            .side = order_management::OrderSide::BID,
             .price = bookState.bidPriceLevel[i].price,
             .quantity = bookState.bidPriceLevel[i].totalShares
         };

@@ -15,7 +15,7 @@ enum DeltaAction {
 
 message OrderDelta {
     DeltaAction action = 1;
-    order_managment.OrderSide side = 2;
+    order_management.OrderSide side = 2;
     uint64 price = 3;
     uint64 quantity = 4;
 }

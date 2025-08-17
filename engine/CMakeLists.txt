@@ -1,17 +1,11 @@
+# engine/CMakeLists.txt
+
 add_library(
     EngineCore
     src/core/OrderBook.cpp
 )
 
-target_include_directories(
-    EngineCore
-    PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
-)
-
-enable_testing()
-include(GoogleTest)
+target_link_libraries(EngineCore PUBLIC aether_protos)
 
 add_executable(
     OrderBookTests
@@ -39,4 +33,8 @@ target_link_libraries(
     benchmark::benchmark
 )
 
-add_subdirectory(src/network)
+target_include_directories(
+    EngineCore PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+)

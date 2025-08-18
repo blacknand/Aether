@@ -8,25 +8,25 @@ std::optional<std::vector<Trade>> OrderBook::addOrder(Order& order)
     std::vector<Trade> trades;
     if (order.side == OrderSide::ASK) {
         if (order.type == OrderType::MARKET) {
-            while (order.quantity > 0 && !asks.empty()) {
-                uint64_t restingOrderId = asks.begin()->second.front().orderId;
-                processTrade(order, restingOrderId, trades);
-            }
-        } else {
-            while (order.quantity > 0 && !asks.empty() && order.price >= asks.begin()->first) {
-                uint64_t restingOrderId = asks.begin()->second.front().orderId;
-                processTrade(order, restingOrderId, trades);
-            }
-        }
-    } else {
-        if (order.type == OrderType::MARKET) {
             while (order.quantity > 0 && !bids.empty()) {
                 uint64_t restingOrderId = bids.begin()->second.front().orderId;
                 processTrade(order, restingOrderId, trades);
             }
         } else {
-            while (order.quantity > 0 && !bids.empty() && order.price <= bids.begin()->first) {
+            while (order.quantity > 0 && !bids.empty() && order.price.value() <= bids.begin()->first) {
                 uint64_t restingOrderId = bids.begin()->second.front().orderId;
+                processTrade(order, restingOrderId, trades);
+            }
+        }
+    } else {
+        if (order.type == OrderType::MARKET) {
+            while (order.quantity > 0 && !asks.empty()) {
+                uint64_t restingOrderId = asks.begin()->second.front().orderId;
+                processTrade(order, restingOrderId, trades);
+            }
+        } else {
+            while (order.quantity > 0 && !asks.empty() && order.price.value() >= asks.begin()->first) {
+                uint64_t restingOrderId = asks.begin()->second.front().orderId;
                 processTrade(order, restingOrderId, trades);
             }
         }
@@ -43,25 +43,43 @@ std::optional<std::vector<Trade>> OrderBook::addOrder(Order& order)
     }
 
     if (order.quantity > 0 && order.type == OrderType::LIMIT) {
-        auto& protoSide = (order.side == OrderSide::BID) ? order_management::OrderSide::BID : order_management::OrderSide::ASK;
-        auto& mapToUse = (order.side == OrderSide::BID) ? bids : asks;
-        bool mapContainsPriceLevel = mapsToUse.contains(order.price);
-        mapsToUse[order.price].push_back(order);
-        auto it = std::prev(mapsToUse[order.price].end());
-        orderIdIndex[order.orderId] = it;
+        uint64_t priceVal = order.price.value();
+        // TODO: optimise since this is a lot of redundant code
+        if (order.side == OrderSide::BID) {
+            bool wasLevelPresent = bids.contains(priceVal);
+            bids[priceVal].push_back(order);
+            auto it = std::prev(bids[priceVal].end());
+            orderIdIndex[order.orderId] = it;
 
-        uint64_t newQuantity {0};
-        for (const auto& order : mapsToUse.at(order.price))
-            newQuantity += order.quantity;
+            uint64_t newTotalQuantity = 0;
+            for (const auto& o : bids.at(priceVal))
+                newTotalQuantity += o.quantity;
 
-        aether_market_data::OrderDelta delta{
-            .action = (mapContainsPriceLevel) ? aether_market_data::DeltaAction::UPDATE : aether_market_data::DeltaAction::ADD,
-            .side = order_management::OrderSide::protoSide,
-            .price = order.price,
-            .quantity = newQuantity
-        };
+            aether_market_data::OrderDelta delta;
+            delta.set_action((wasLevelPresent) ? aether_market_data::DeltaAction::UPDATE : aether_market_data::DeltaAction::ADD);
+            delta.set_side(aether::OrderSide::BID);
+            delta.set_price(order.price.value());
+            delta.set_quantity(newTotalQuantity);
 
-        tradeQueue->push(delta);
+            tradeQueue->push(delta);
+        } else {
+            bool wasLevelPresent = asks.contains(priceVal);
+            asks[priceVal].push_back(order);
+            auto it = std::prev(asks[priceVal].end());
+            orderIdIndex[order.orderId] = it;
+
+            uint64_t newTotalQuantity = 0;
+            for (const auto& o : asks.at(priceVal))
+                newTotalQuantity += o.quantity;
+
+            aether_market_data::OrderDelta delta;
+            delta.set_action((wasLevelPresent) ? aether_market_data::DeltaAction::UPDATE : aether_market_data::DeltaAction::ADD);
+            delta.set_side(aether::OrderSide::ASK);
+            delta.set_price(order.price.value());
+            delta.set_quantity(newTotalQuantity);
+
+            tradeQueue->push(delta);
+        }
     }
 
     return trades;
@@ -74,37 +92,38 @@ bool OrderBook::removeOrder(uint64_t orderId)
     if (it == orderIdIndex.end()) return false;
     auto orderIt = it->second;
 
-    price p = orderIt->price;
+    uint64_t p = orderIt->price.value();
     OrderSide side = orderIt->side;
 
-    auto& mapsToUse = (side == OrderSide::BID) ? bids : asks;
-    auto& orderList = mapsToUse.at(p);
+    auto updateAndNotify = [&](auto& book) {
+        auto& orderList = book.at(p);
 
-    orderList.erase(orderIt);
-    orderIdIndex.erase(it);
+        orderList.erase(orderIt);
+        orderIdIndex.erase(it);
 
-    uint64_t newTotalQuantity = 0;
-    for (const auto& order : orderList)
-        newTotalQuantity += order.quantity;
+        uint64_t newTotalQuantity = 0;
+        for (const auto& order : orderList)
+            newTotalQuantity += order.quantity;
 
-    aether_market_data::DeltaAction action;
-    if (orderList.empty()) {
-        action = aether_market_data::DeltaAction::DELETE;
-        mapsToUse.erase(p);
-    } else {
-        action = aether_market_data::DeltaAction::UPDATE;
-    }
-   
-   auto& deltaSide = (side == OrderSide::BID) ? order_management::OrderSide::BID : order_management::OrderSide::ASK;
+        aether_market_data::OrderDelta delta;
+        delta.set_price(p);
+        delta.set_side((side == OrderSide::BID) ? aether::OrderSide::BID : aether::OrderSide::ASK);
+        delta.set_quantity(newTotalQuantity);
 
-    aether_market_data::OrderDelta delta{
-        .action = action,
-        .side = deltaSide,
-        .price = p,
-        .quantity = newTotalQuantity
+        if (newTotalQuantity == 0) {
+            delta.set_action(aether_market_data::DeltaAction::DELETE);
+            book.erase(p);
+        } else {
+            delta.set_action(aether_market_data::DeltaAction::UPDATE);
+        }
+
+        tradeQueue->push(delta);
     };
 
-    tradeQueue->push(delta);
+    if (side == OrderSide::BID)
+        updateAndNotify(bids);
+    else
+        updateAndNotify(asks);
 
     return true;
 }
@@ -112,13 +131,12 @@ bool OrderBook::removeOrder(uint64_t orderId)
 
 void OrderBook::processTrade(Order& aggressiveOrder, uint64_t restingOrderId, std::vector<Trade>& trades)
 {
-    nextTradeId++;        
     auto& restingOrderIter = orderIdIndex.at(restingOrderId);
     uint32_t tradeQuantity = std::min(aggressiveOrder.quantity, restingOrderIter->quantity);
     trades.emplace_back(Trade{
         .tradeId = nextTradeId++,
         .securityId = aggressiveOrder.securityId,
-        .price = restingOrderIter->price,
+        .price = restingOrderIter->price.value(),
         .quantity = tradeQuantity,
         .aggressingOrderId = aggressiveOrder.orderId,
         .restingOrderId = restingOrderId,
@@ -130,76 +148,68 @@ void OrderBook::processTrade(Order& aggressiveOrder, uint64_t restingOrderId, st
 
     auto listIteratorCopy = restingOrderIter;
     OrderSide side = restingOrderIter->side;
-    price p = restingOrderIter->price;
-    auto& mapToUse = (side == OrderSide::BID) ? bids : asks;
+    uint64_t p = restingOrderIter->price.value();
 
-    // NOTE: You left off at step 1 on the mac screen. Continue
-
-    if (mapToUse.contains(p)) {
-        uint64_t newTotalQuantity {0};
-        for (const auto& order : mapToUse.at(p)) 
-            newTotalQuantity += order.quantity;
-
-        order_management::OrderSide deltaSide = (side == OrderSide::BID) ? order_management::OrderSide::BID : order_management::OrderSide::ASK;
-        aether_market_data::DeltaAction action = (newTotalQuantity > 0) ? aether_market_data::DeltaAction::UPDATE : aether_market_data::DeltaAction::DELETE;
-
-        aether_market_data::OrderDelta delta{
-            .action = action,
-            .side = deltaSide,
-            .price = p,
-            .quantity = newTotalQuantity
-        };
-        tradeQueue->push(delta);
-    }
-
-    if (restingOrderIter->quantity == 0) {
-        if (side == OrderSide::BID) {
-            auto& orderList = bids.at(p);
+    auto updateAndNotify = [&](auto& book) {
+        if (restingOrderIter->quantity == 0) {
+            auto& orderList = book.at(p);
             orderList.erase(listIteratorCopy);
-
             if (orderList.empty())
-                bids.erase(p);
-        } else {
-            auto& orderList = asks.at(p);
-            orderList.erase(listIteratorCopy);
-
-            if (orderList.empty())
-                asks.erase(p);
+                book.erase(p);
+            orderIdIndex.erase(restingOrderId);
         }
-        orderIdIndex.erase(restingOrderId);
-    }
+
+        uint64_t newTotalQuantity = 0;
+        if (book.contains(p)) {
+            for (const auto& order : book.at(p))
+                newTotalQuantity += order.quantity;
+        }
+
+        aether_market_data::OrderDelta delta;
+        delta.set_action((newTotalQuantity > 0) ? aether_market_data::DeltaAction::UPDATE : aether_market_data::DeltaAction::DELETE);
+        delta.set_side((side == OrderSide::BID) ? aether::OrderSide::BID : aether::OrderSide::ASK);
+        delta.set_price(p);
+        delta.set_quantity(newTotalQuantity);
+
+        tradeQueue->push(delta);
+    };
+
+    if (side == OrderSide::BID)
+        updateAndNotify(bids);
+    else
+        updateAndNotify(asks);
 }
 
 
-std::optional<price> OrderBook::getBestBid() const
+std::optional<uint64_t> OrderBook::getBestBid() const
 {
-    if (bids.empty()) return {};
-    return bids.begin()->second.front().price;
+    if (bids.empty()) return std::nullopt;
+    return bids.begin()->first;
 }
 
 
-std::optional<price> OrderBook::getBestAsk() const
+std::optional<uint64_t> OrderBook::getBestAsk() const
 {
-    if (asks.empty()) return {};
-    return asks.begin()->second.front().price;
+    if (asks.empty()) return std::nullopt;
+    return asks.begin()->first;
 }
 
 
-size_t OrderBook::getAskCountAt(price p) const 
+size_t OrderBook::getAskCountAt(uint64_t p) const 
 {
     auto it = asks.find(p);
     return (it != asks.end()) ? it->second.size() : 0;
 }
 
 
-size_t OrderBook::getBidCountAt(price p) const 
+size_t OrderBook::getBidCountAt(uint64_t p) const 
 {
     auto it = bids.find(p);
     return (it != bids.end()) ? it->second.size() : 0;
 }
 
 
-const Order* OrderBook::getTopAskAt(price p) const 
+const Order* OrderBook::getTopAskAt(uint64_t p) const 
 {
     auto it = asks.find(p);
     if (it == asks.end() || it->second.empty()) {
@@ -209,7 +219,7 @@ const Order* OrderBook::getTopAskAt(price p) const
 }
 
 
-const Order* OrderBook::getTopBidAt(price p) const 
+const Order* OrderBook::getTopBidAt(uint64_t p) const 
 {
     auto it = bids.find(p);
     if (it == bids.end() || it->second.empty()) {
@@ -219,7 +229,7 @@ const Order* OrderBook::getTopBidAt(price p) const
 }
 
 
-const Order* OrderBook::getLastBidAt(price p) const 
+const Order* OrderBook::getLastBidAt(uint64_t p) const 
 {
     auto it = bids.find(p);
     if (it == bids.end() || it->second.empty()) {
@@ -233,17 +243,17 @@ OrderBookState OrderBook::getSnapshot()
 {
     OrderBookState state;
     for (const auto& [key, value] : asks) {
-        uint32_t totalShares {0};
+        uint64_t totalShares {0};
         for (const auto& order : value)
             totalShares += order.quantity;
         state.askPriceLevel.emplace_back(key, totalShares);
     }
 
     for (const auto& [key, value] : bids) {
-        uint32_t totalShares {0};
+        uint64_t totalShares {0};
         for (const auto& order : value)
             totalShares += order.quantity;
-        state.bidPriceLevel.emplace_back(key, totalShares);
+        state.bidsPriceLevel.emplace_back(key, totalShares);
     }
 
     return state;

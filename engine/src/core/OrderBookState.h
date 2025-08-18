@@ -8,6 +8,6 @@ struct OrderBookState
 {
     std::vector<PriceLevel> askPriceLevel;
     std::vector<PriceLevel> bidsPriceLevel;
-}
+};
 
 #endif  // ORDER_BOOK_STATE_H

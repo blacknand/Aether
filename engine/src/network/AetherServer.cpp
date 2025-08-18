@@ -76,13 +76,14 @@ grpc::Status MatchingEngineImpl::StreamTrades(grpc::ServerContext* context,
         Trade& trade = tradesQ.front();
         tradesQ.pop();
         lock.unlock();
-        aether::Trade aetherTrade{
-            .trade_id = trade.tradeId,
-            .securityId = trade.securityId,
-            .price = trade.price.value(),
-            .quantity = trade.quantity,
-            .timestamp_ns = trade.timestamp
-        };
+
+        aether::Trade aetherTrade;
+        aetherTrade.set_trade_id(trade.tradeId);
+        aetherTrade.set_securityId(trade.securityId);
+        aetherTrade.set_price(trade.price.value());
+        aetherTrade.set_quantity(trade.quantity);
+        aetherTrade.set_timestamp_ns(trade.timestamp);
+
         writer->Write(aetherTrade);
     }
 
@@ -161,22 +162,22 @@ grpc::Status StreamOrderBookStateImpl::StreamOrderBook(grpc::ServerContext* cont
 {
     OrderBookState bookState = orderBook->getSnapshot(); 
     for (int i = 0; i < bookState.askPriceLevel.size(); i++) {
-        aether_market_data::OrderDelta delta{
-            .action = aether_market_data::DeltaAction::ADD,
-            .side = order_management::OrderSide::ASK,
-            .price = bookState.askPriceLevel[i].price,
-            .quantity = bookState.askPriceLevel[i].totalShares
-        };
+        aether_market_data::OrderDelta delta;
+        delta.set_action(aether_market_data::DeltaAction::ADD);
+        delta.set_side(aether::OrderSide::ASK);
+        delta.set_price(bookState.askPriceLevel[i].price);
+        delta.set_quantity(bookState.askPriceLevel[i].totalShares);
+
         writer->Write(delta);
     }
 
     for (int i = 0; i < bookState.bidPriceLevel.size(); i++) {
-        aether_market_data::OrderDelta delta{
-            .action = aether_market_data::DeltaAction::ADD,
-            .side = order_management::OrderSide::BID,
-            .price = bookState.bidPriceLevel[i].price,
-            .quantity = bookState.bidPriceLevel[i].totalShares
-        };
+        aether_market_data::OrderDelta delta;
+        delta.set_action(aether_market_data::DeltaAction::ADD);
+        delta.set_side(aether::OrderSide::BID);
+        delta.set_price(bookState.bidPriceLevel[i].price);
+        delta.set_quantity(bookState.bidPriceLevel[i].totalShares);
+
         writer->Write(delta);
     }
 

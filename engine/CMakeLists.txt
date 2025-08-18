@@ -5,12 +5,14 @@ add_library(
     src/core/OrderBook.cpp
 )
 
+target_compile_features(EngineCore PUBLIC cxx_std_23)
 target_link_libraries(EngineCore PUBLIC aether_protos)
 
 add_executable(
     OrderBookTests
     tests/OrderBookTests.cpp
 )
+target_compile_features(OrderBookTests PUBLIC cxx_std_23)
 
 target_link_libraries(
     OrderBookTests
@@ -25,6 +27,7 @@ add_executable(
     Benchmarks
     benchmarks/MatchingBenchmarks.cpp
 )
+target_compile_features(Benchmarks PUBLIC cxx_std_23)
 
 target_link_libraries(
     Benchmarks

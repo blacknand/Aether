@@ -4,7 +4,7 @@ import "order_management.proto";
 package aether_market_data;
 
 service StreamOrderBookState {
-    rpc StreamOrderBook(StreamRequest) returns (stream OrderDelta);
+    rpc StreamOrderBook(aether.StreamRequest) returns (stream OrderDelta);
 }
 
 enum DeltaAction {
@@ -15,7 +15,7 @@ enum DeltaAction {
 
 message OrderDelta {
     DeltaAction action = 1;
-    order_management.OrderSide side = 2;
+    aether.OrderSide side = 2;
     uint64 price = 3;
     uint64 quantity = 4;
 }

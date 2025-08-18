@@ -29,9 +29,9 @@ graph TD
 ```
 
 ## Building
-Ensure that gRPC has been installed in `$MY_INSTALL_DIR` or some other appropriate location. You do not need to the `CMAKE_POLICY_VERSION_MINIMUM=3.5` if you are using CMake < 4.0
+Ensure that gRPC has been installed in some appropriate location. You do not need to the `CMAKE_POLICY_VERSION_MINIMUM=3.5` if you are using CMake < 4.0
 ```bash
-mkdir -p build && cd build
-cmake -DCMAKE_PREFIX_PATH=$HOME/.local/grpc_install ..
-cmake --build build
+rm -rf build
+cmake -S . -B build -DCMAKE_PREFIX_PATH="$HOME/.local/grpc_install"
+cmake --build build -j
 ```

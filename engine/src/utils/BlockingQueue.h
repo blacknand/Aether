@@ -21,7 +21,7 @@ public:
     {
         // TODO: Specify order side in template
         std::unique_lock lock{mut};
-        cond.wait(lock, [this]{ !blockingQueue.empty() });
+        cond.wait(lock, [this]{ !blockingQueue.empty(); });
         T t = std::move(blockingQueue.front());
         blockingQueue.pop();
         lock.unlock();

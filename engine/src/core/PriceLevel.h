@@ -8,6 +8,6 @@ struct PriceLevel
     PriceLevel(uint64_t price_, uint64_t totalShares_) : 
                                         price(std::move(price_)), 
                                         totalShares(std::move(totalShares_)) {}
-}
+};
 
 #endif  // PRICE_LEVEL_H

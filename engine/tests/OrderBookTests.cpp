@@ -89,7 +89,10 @@ TEST_F(OrderBookTest, WalkTheBook_LimitOrder)
 TEST_F(OrderBookTest, MarketOrderRejection)
 {
     Order marketBuyOrder = {12, 12, OrderSide::BID, OrderType::MARKET, std::nullopt, 10, 0};
-    ASSERT_EQ(book->addOrder(marketBuyOrder), std::nullopt);    // nullopt?
+    auto trades = book->addOrder(marketBuyOrder);
+    ASSERT_EQ(trades, std::nullopt);
+    ASSERT_FALSE(book->getBestBid().has_value());
+    ASSERT_FALSE(book->getBestAsk().has_value());
 }
 
 

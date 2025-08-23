@@ -4,3 +4,5 @@ ROADMAP.md
 /build/
 /third_party/
 /grpc_install/
+/api/app/generated
+/api/app/__pycache__

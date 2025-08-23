@@ -217,6 +217,56 @@ TEST_F(OrderBookTest, WalkTheBook_MarketOrder)
 }
 
 
+TEST_F(OrderBookTest, AddOrderPushesDelta)
+{
+    Order restingLimitBid = {30, 30, OrderSide::BID, OrderType::LIMIT, 100, 10, 0};
+    book->addOrder(restingLimitBid);
+    auto delta = blockingQueue->pop();
+    auto side = delta.side();
+    uint64_t price = delta.price();
+    uint64_t quantity = delta.quantity();
+    auto action = delta.action();
+    ASSERT_EQ(action, aether_market_data::DeltaAction::ADD);
+    ASSERT_EQ(side, aether::OrderSide::BID);
+    ASSERT_EQ(price, 100);
+    ASSERT_EQ(quantity, 10);
+}
+
+
+TEST_F(OrderBookTest, RemoveOrderPushesDelta)
+{
+    Order restingLimitBid = {31, 31, OrderSide::BID, OrderType::LIMIT, 100, 10, 0};
+    book->addOrder(restingLimitBid);
+    book->removeOrder(31);
+
+    blockingQueue->pop();
+    auto delta = blockingQueue->pop();
+    uint64_t quantity = delta.quantity();
+    auto action = delta.action();
+    ASSERT_EQ(action, aether_market_data::DeltaAction::DELETE);
+    ASSERT_EQ(quantity, 0);
+}
+
+
+TEST_F(OrderBookTest, ProcessTradePushesDelta)
+{
+    Order restingLimitBid = {32, 32, OrderSide::BID, OrderType::LIMIT, 100, 10, 0};
+    book->addOrder(restingLimitBid);
+    blockingQueue->pop();
+
+    Order aggressiveAsk = {33, 33, OrderSide::ASK, OrderType::LIMIT, 100, 5, 0};
+    book->addOrder(aggressiveAsk);
+
+    ASSERT_FALSE(blockingQueue->empty());
+    auto delta = blockingQueue->pop();
+
+    ASSERT_EQ(delta.action(), aether_market_data::DeltaAction::UPDATE);
+    ASSERT_EQ(delta.side(), aether::OrderSide::BID);
+    ASSERT_EQ(delta.price(), 100);
+    ASSERT_EQ(delta.quantity(), 5);
+}
+
+
 int main(int argc, char **argv) 
 {
   testing::InitGoogleTest(&argc, argv);

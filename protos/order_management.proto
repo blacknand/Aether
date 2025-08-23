@@ -2,18 +2,11 @@ syntax = "proto3";
 
 package aether;
 
-// Service definition for the matching engine
 service MatchingEngine {
-    // Submit a new order to the engine
     rpc SubmitOrder(OrderRequest) returns (OrderConfirmation);
-
-    // Stream live trade executions for a given security
     rpc StreamTrades(StreamRequest) returns (stream Trade);
-
-    // Stream live L2 order book snapshots for a given security
 }
 
-// Enums for order properties
 enum OrderSide {
     SIDE_UNKNOWN = 0;
     BID = 1;
@@ -26,19 +19,18 @@ enum OrderType {
     LIMIT = 2;
 }
 
-// Message definitions
 message OrderRequest {
     uint64 security_id = 1;
     OrderSide side = 2;
     OrderType type = 3;
     uint32 quantity = 4;
-    uint64 price = 5; // Ignored for MARKET orders
+    uint64 price = 5; 
 }
 
 message OrderConfirmation {
     uint64 order_id = 1;
     bool accepted = 2;
-    string reason = 3; // e.g., "Accepted", "Insufficient funds"
+    string reason = 3;              // e.g., "Accepted", "Insufficient funds"
     repeated Trade trades = 4;
 }
 
@@ -51,7 +43,7 @@ message Trade {
     uint64 security_id = 2;
     uint64 price = 3;
     uint32 quantity = 4;
-    int64 timestamp_ns = 5; // Nanosecond epoch time
+    int64 timestamp_ns = 5;         // Nanosecond epoch time
 }
 
 message OrderBookLevel {

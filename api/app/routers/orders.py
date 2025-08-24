@@ -1,8 +1,9 @@
 from pydantic import BaseModel, model_validator, Field
-from generated.order_management_pb2 import OrderSide, OrderType
+from app.generated.order_management_pb2 import OrderSide, OrderType
 from typing_extensions import Self
 from enum import Enum
 from typing import Annotated, Optional
+
 
 class OrderSide(str, Enum):
     BID = "BID"

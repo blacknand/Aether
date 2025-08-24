@@ -1,18 +1,23 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from app.services.grpc_client import get_client
 import logging
 
+logger =  logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("startup")
+    client = get_client("localhost:50051")
+    logger.info("[PyAPI] establishing connection to Aether gRPC server...")
+    await client.connect()
     yield
-    logger.info("shutdown")
+    logger.info("[PyAPI] disconnecting from Aether gRPC server...")
+    await client.disconnect()
 
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/healthz")
 async def healthz():
-    return {"OK": True}
+    client = get_client("localhost:50051")
+    return {"grpc_connected": client.is_connected}

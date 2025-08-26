@@ -1,5 +1,5 @@
 # engine/network/CMakeLists.txt
-add_executable(AetherServer AetherServer.cpp)
+add_executable(AetherServer AetherServer.cpp ../main.cpp)
 
 target_link_libraries(
     AetherServer

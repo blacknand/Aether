@@ -269,11 +269,20 @@ int OrderBook::loadSecurities(const std::string& securitiesPath)
     }
 
     std::string line;
+    bool first = true;
     while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        if (!line.empty() && line.back() == '\r') line.pop_back();      // macOS & Linux trim trailing CR
         size_t commaPos = line.find(',');
-        if (commaPos != std::string::npos) {
-            uint64_t securityId = std::stoull(line.substr(0, commaPos));
+        if (commaPos == std::string::npos) continue;
+        std::string idStr = line.substr(0, commaPos);
+        if (!std::all_of(idStr.begin(), idStr.end(), ::isdigit)) continue;
+        try {
+            uint64_t securityId = std::stoull(idStr);
             securities.insert(securityId);
+        } catch (const std::exception& e) {
+            std::cerr << "[gRPC-SERVER] Bad security ID " << idStr << " on line: \"" <<  line << "\" (" << e.what() << ")\n";
+            return -1;
         }
     }
     file.close();

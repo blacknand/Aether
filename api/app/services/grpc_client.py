@@ -1,5 +1,5 @@
-import logging
-import grpc
+import asyncio
+from grpc import aio
 from app.generated.order_management_pb2_grpc import MatchingEngineStub
 from app.generated.market_data_pb2_grpc import StreamOrderBookStateStub
 
@@ -13,14 +13,16 @@ class GrpcClient:
         self.stream_order_book_state_stub = None
 
     async def connect(self) -> None:
-        # self._channel = grpc.insecure_channel("localhost:50051")
+        if self._connected: return
+        self._channel = aio.insecure_channel(self._target)
+        await self._channel.channel_ready()
         self.matching_engine_stub = MatchingEngineStub(self._channel)
         self.stream_order_book_state_stub = StreamOrderBookStateStub(self._channel)
         self._connected = True
 
-    async def disconnect(self) -> None:
+    async def close(self) -> None:
         if self._channel is not None:
-            self._channel.close()
+            await self._channel.close()
             self._channel = None
             self._connected = False
 
@@ -35,3 +37,6 @@ def get_client(target: str = "localhost:50051") -> GrpcClient:
     if _client_singleton is None:
         _client_singleton = GrpcClient(target)
     return _client_singleton
+
+client = get_client()
+asyncio.run(client.connect())

@@ -79,7 +79,7 @@ grpc::Status MatchingEngineImpl::StreamTrades(grpc::ServerContext* context,
 
         aether::Trade aetherTrade;
         aetherTrade.set_trade_id(trade.tradeId);
-        aetherTrade.set_securityId(trade.securityId);
+        aetherTrade.set_security_id(trade.securityId);
         aetherTrade.set_price(trade.price.value());
         aetherTrade.set_quantity(trade.quantity);
         aetherTrade.set_timestamp_ns(trade.timestamp);
@@ -171,12 +171,12 @@ grpc::Status StreamOrderBookStateImpl::StreamOrderBook(grpc::ServerContext* cont
         writer->Write(delta);
     }
 
-    for (int i = 0; i < bookState.bidPriceLevel.size(); i++) {
+    for (int i = 0; i < bookState.bidsPriceLevel.size(); i++) {
         aether_market_data::OrderDelta delta;
         delta.set_action(aether_market_data::DeltaAction::ADD);
         delta.set_side(aether::OrderSide::BID);
-        delta.set_price(bookState.bidPriceLevel[i].price);
-        delta.set_quantity(bookState.bidPriceLevel[i].totalShares);
+        delta.set_price(bookState.bidsPriceLevel[i].price);
+        delta.set_quantity(bookState.bidsPriceLevel[i].totalShares);
 
         writer->Write(delta);
     }

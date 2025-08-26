@@ -26,7 +26,7 @@
 #include <queue>
 #include <thread>
 
-void RunServer();
+void RunServer(const std::string& securitiesPath);
 
 class MatchingEngineImpl final : public aether::MatchingEngine::Service
 {

@@ -4,6 +4,7 @@ cd generated
 python3 -m grpc_tools.protoc -I../../protos --python_out=. --pyi_out=. --grpc_python_out=. ../../protos/*.proto
 ```
 
+## Dataflow
 ```mermaid
 flowchart TD
     %% Define the high-level actors and their communication
@@ -40,3 +41,59 @@ flowchart TD
         Router -- "/ws/trades" --> WebSocketPath
     end
 ```
+
+## Blueprint
+```mermaid
+flowchart TD
+    %% Define the high-level actors and their communication
+    RF[React Frontend] -- HTTP / WebSocket --> Gateway
+    Gateway -- gRPC --> AE[C++ Aether Engine]
+
+    %% Define the internal components and flow of the Gateway
+    subgraph Gateway [Python API Gateway]
+        direction TB
+
+        %% Gatekeeper Pipeline
+        Ingress --> AuthN[1. Authentication <br/>(JWT Check)]
+        AuthN --> RL[2. Rate Limiting <br/>(Token Bucket/Redis)]
+        RL --> Router[3. Routing]
+
+        %% Core Logic, handled by the Service Layer
+        subgraph ServiceLayer [4. Service Layer Logic]
+            direction TB
+
+            subgraph PostPath [POST /orders Flow]
+                direction LR
+                V1[Validate <br/>(Pydantic)] --> T1[Transform <br/>JSON -> Protobuf] --> PT1[Translate <br/>(Unary gRPC Call)]
+            end
+
+            subgraph WebSocketPath [WS /ws/... Flow]
+                direction LR
+                 PT2[Translate <br/>(Open gRPC Stream)] --> T2[Continuously Transform & Relay<br/>Protobuf -> JSON over WebSocket]
+            end
+        end
+        
+        %% Connect Routing to the specific logic paths
+        Router -- "/orders" --> PostPath
+        Router -- "/ws/orderbook" --> WebSocketPath
+        Router -- "/ws/trades" --> WebSocketPath
+    end
+```
+
+## Core Functionality:
+
+- Routing: POST /orders, WS /ws/trades/{id}, WS /ws/orderbook/{id}.
+
+- Protocol Translation: HTTP/WebSocket ↔ gRPC.
+
+- Data Transformation: JSON ↔ Protobuf.
+
+- Validation: Using Pydantic models.
+
+- Security: JWT-based Authentication.
+
+- Resilience: Timeouts on gRPC calls.
+
+- Rate Limiting: Token Bucket algorithm implemented with Redis.
+
+- Observability: Logging and key metrics (request rate, error rate, backend latency).

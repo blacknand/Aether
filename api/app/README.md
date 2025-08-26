@@ -54,22 +54,22 @@ flowchart TD
         direction TB
 
         %% Gatekeeper Pipeline
-        Ingress --> AuthN[1. Authentication <br/>(JWT Check)]
-        AuthN --> RL[2. Rate Limiting <br/>(Token Bucket/Redis)]
-        RL --> Router[3. Routing]
+        Ingress --> AuthN[Authentication: JWT Check]
+        AuthN --> RL[Rate Limiting: Token Bucket/Redis]
+        RL --> Router[Routing]
 
         %% Core Logic, handled by the Service Layer
-        subgraph ServiceLayer [4. Service Layer Logic]
+        subgraph ServiceLayer [Service Layer Logic]
             direction TB
 
             subgraph PostPath [POST /orders Flow]
                 direction LR
-                V1[Validate <br/>(Pydantic)] --> T1[Transform <br/>JSON -> Protobuf] --> PT1[Translate <br/>(Unary gRPC Call)]
+                V1[Validate: Pydantic] --> T1[Transform: JSON to Protobuf] --> PT1[Translate: Unary gRPC Call]
             end
 
             subgraph WebSocketPath [WS /ws/... Flow]
                 direction LR
-                 PT2[Translate <br/>(Open gRPC Stream)] --> T2[Continuously Transform & Relay<br/>Protobuf -> JSON over WebSocket]
+                PT2[Translate: Open gRPC Stream] --> T2[Continuously Transform & Relay: Protobuf to JSON over WebSocket]
             end
         end
         

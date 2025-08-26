@@ -27,6 +27,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(benchmark)
 
+
 add_subdirectory(protos)
 add_subdirectory(engine)
-
+add_subdirectory(engine/src/network)

@@ -11,9 +11,12 @@ async def lifespan(app: FastAPI):
     client = get_client("localhost:50051")
     logger.info("[PyAPI] establishing connection to Aether gRPC server...")
     await client.connect()
-    yield
-    logger.info("[PyAPI] disconnecting from Aether gRPC server...")
-    await client.disconnect()
+    logger.info("[PyAPI] gRPC connected")
+    try:
+        yield
+    finally: 
+        logger.info("[PyAPI] disconnecting from Aether gRPC server...")
+        await client.close()
 
 app = FastAPI(lifespan=lifespan)
 

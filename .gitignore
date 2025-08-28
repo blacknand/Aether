@@ -7,4 +7,5 @@ ROADMAP.md
 /api/app/generated/*_grpc.*
 /api/app/generated/*_pb2.*
 /api/app/generated/__pycache__
+/api/app/services/__pycache__
 /api/app/__pycache__

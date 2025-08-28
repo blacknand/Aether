@@ -94,6 +94,8 @@ grpc::Status MatchingEngineImpl::StreamTrades(grpc::ServerContext* context,
 
 void RunServer(const std::string& securitiesPath)
 {
+    // TODO: Output to std::cout when a user connects to the server,
+    // and perhaps log when the user submits any kind of request to the server too
     std::string server_address("0.0.0.0:50051");    // NOTE: will probably need to change
 
     auto blockingQueue = std::make_shared<BlockingQueue<aether_market_data::OrderDelta>>();
@@ -110,7 +112,7 @@ void RunServer(const std::string& securitiesPath)
     builder.RegisterService(&streamOrderBookService);
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
 
-    std::cout << "gRPC Aether Server listening on " << server_address << std::endl;
+    std::cout << "[gRPC-SERVER] gRPC Aether Server listening on " << server_address << std::endl;
     server->Wait();
 }
 

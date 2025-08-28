@@ -2,7 +2,7 @@ import asyncio
 from grpc import aio
 from app.generated.order_management_pb2_grpc import MatchingEngineStub
 from app.generated.market_data_pb2_grpc import StreamOrderBookStateStub
-
+from app.generated.order_management_pb2 import OrderRequest, OrderType, OrderSide
 
 class GrpcClient:
     def __init__(self, target: str):
@@ -26,17 +26,35 @@ class GrpcClient:
             self._channel = None
             self._connected = False
 
+    async def submitOrder(self, orderRequest):        # NOTE: Do not know what it would return
+        if not self._connected: return "[PyAPI-ERROR] Not connected to Aether gRPC server"
+        return await self.matching_engine_stub.SubmitOrder(orderRequest)
+
     @property
     def is_connected(self) -> bool:
         return self._connected
 
 _client_singleton: GrpcClient | None = None
 
-def get_client(target: str = "localhost:50051") -> GrpcClient:
+def get_client(target: str = "0.0.0.0:50051") -> GrpcClient:
     global _client_singleton
     if _client_singleton is None:
         _client_singleton = GrpcClient(target)
     return _client_singleton
 
 client = get_client()
-asyncio.run(client.connect())
+
+async def main():
+    await client.connect()
+    request = OrderRequest()
+    request.security_id = 1001
+    request.side = OrderSide.BID
+    request.type = OrderType.LIMIT 
+    request.quantity = 10
+    request.price = 100
+    result = await client.submitOrder(request)
+    print(result)
+    print(client.is_connected)
+    await client.close()
+
+asyncio.run(main())

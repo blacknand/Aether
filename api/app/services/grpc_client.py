@@ -27,7 +27,7 @@ class GrpcClient:
             self._connected = False
 
     async def submitOrder(self, orderRequest):        # NOTE: Do not know what it would return
-        if not self._connected: return "[PyAPI-ERROR] Not connected to Aether gRPC server"
+        if not self._connected: return "[PyAPI] Not connected to Aether gRPC server"
         return await self.matching_engine_stub.SubmitOrder(orderRequest)
 
     @property

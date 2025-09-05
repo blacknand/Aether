@@ -1,12 +1,14 @@
 # api/app/core/dependencies.py
 
+from math import ceil
 from typing import Annotated
-from fastapi import Depends, HTTPException, status, Security
+from fastapi import Depends, HTTPException, status, Security, Request, Response
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from app.core.security import decode_access_token
 from app.models.user import UserInDB, User
 from app.models.auth import TokenData
 from app.services.user_repo import get_user
+from app.core.rate_limiting import TokenBucketRedisClient
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/token",
@@ -53,3 +55,19 @@ async def get_current_user(
 async def get_current_active_user(current_user: Annotated[User, Security(get_current_user, scopes=["me"])]):
     if current_user.disabled: raise HTTPException(status_code=400, detail="Inactive User")
     return current_user
+
+async def per_ip_rate_limit(route_label: str, request: Request, response: Response):
+    ip = request.client.host if request.client else "unkown"
+    key = f"rl:bucket:{{{route_label}:{ip}}}"
+    limiter = request.app.state.ratelimitier
+    allowed, retry_ms, remaining = limiter.call(key)
+    response.headers["X-RateLimit-Limit"] = str(limiter.capacity)
+    response.headers["X-RateLimit-Remaining"] = str(int(remaining))
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded",
+            headers={"Retry-After": str(max(1, ceil(retry_ms / 1000)))},
+        )
+    
+    return None
